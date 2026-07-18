@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Remote - Veritas</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #09090b;
+            color: white;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            color: #6366f1;
+        }
+
+        .header p {
+            margin: 5px 0 0;
+            color: #a1a1aa;
+            font-size: 14px;
+        }
+
+        .slide-preview {
+            background: #18181b;
+            border: 1px solid #27272a;
+            border-radius: 12px;
+            padding: 20px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        #preview-text {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        #preview-subtext {
+            font-size: 16px;
+            color: #a1a1aa;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        button {
+            background: #27272a;
+            border: none;
+            color: white;
+            padding: 25px;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:active {
+            background: #3f3f46;
+            transform: scale(0.98);
+        }
+
+        .btn-primary {
+            background: #6366f1;
+        }
+
+        .btn-primary:active {
+            background: #4f46e5;
+        }
+
+        .btn-danger {
+            background: #f43f5e;
+            grid-column: span 2;
+        }
+
+        .btn-danger:active {
+            background: #e11d48;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="header">
+        <h1>Veritas Remote</h1>
+        <p id="status">Connecting...</p>
+    </div>
+
+    <div class="slide-preview">
+        <div id="preview-text">...</div>
+        <div id="preview-subtext"></div>
+    </div>
+
+    <div class="controls">
+        <button onclick="sendCommand('prev')">PREV</button>
+        <button onclick="sendCommand('next')" class="btn-primary">NEXT</button>
+        <button onclick="sendCommand('clear')" class="btn-danger">CLEAR SCREEN</button>
+    </div>
+
+    <script>
+        let ws;
+
+        function connect() {
+            ws = new WebSocket(`ws://${window.location.host}/ws`);
+            const status = document.getElementById('status');
+
+            ws.onopen = () => status.textContent = 'Connected';
+            ws.onclose = () => {
+                status.textContent = 'Disconnected. Reconnecting...';
+                setTimeout(connect, 1000);
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.isBlackout) {
+                    document.getElementById('preview-text').textContent = '[ SCREEN CLEARED ]';
+                    document.getElementById('preview-subtext').textContent = '';
+                } else {
+                    document.getElementById('preview-text').textContent = data.text || 'No active slide';
+                    document.getElementById('preview-subtext').textContent = data.subtext || '';
+                }
+            };
+        }
+
+        function sendCommand(action) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ action }));
+            }
+        }
+
+        connect();
+    </script>
+</body>
+
+</html>
