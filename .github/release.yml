@@ -1,0 +1,56 @@
+name: 'publish'
+
+# This workflow triggers when you push a version tag like "v1.0.0"
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  publish-tauri:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: 'macos-latest' # Apple Silicon Macs (M1/M2/M3)
+            args: '--target aarch64-apple-darwin'
+          - platform: 'macos-latest' # Intel Macs
+            args: '--target x86_64-apple-darwin'
+          - platform: 'windows-latest' # Windows PCs
+            args: ''
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          # This caches the compilation targets specifically for macOS cross-compilation
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: install frontend dependencies
+        # If you use yarn, pnpm, or bun for your React app, change this command!
+        run: npm install 
+
+      - uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # Automatically uses the tag you pushed (e.g., v1.0.0)
+          tagName: ${{ github.ref_name }} 
+          releaseName: 'VerseView ${{ github.ref_name }}'
+          releaseBody: 'See the assets below to download and install this version.'
+          
+          # This matches your Phase 4 step! It sets the release to a draft 
+          # so you can edit the release notes before it goes public.
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
