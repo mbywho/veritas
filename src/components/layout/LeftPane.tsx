@@ -1,4 +1,4 @@
-import { Search, Book, Download, Loader2, BookOpen, Music, Edit2, Trash2, Plus, History, Settings, FileUp } from 'lucide-react';
+import { Search, Book, Download, Loader2, BookOpen, Music, Edit2, Trash2, Plus, History, Settings, FileDown } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useState, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
@@ -418,8 +418,40 @@ export default function LeftPane() {
     }
   };
 
-  const handleVerseClick = (verse: Verse) => {
-    setActiveVerses([verse], 'bible', null);
+  const handleVerseClick = async (verse: Verse) => {
+    if (!primaryBibleId) return;
+    try {
+      const books = await invoke<any[]>('get_books', { bibleId: primaryBibleId });
+      const book = books.find((b: any) => b.id === verse.book_id);
+      const bookNumber = book ? book.number : 1;
+
+      const chapterVerses = await invoke<Verse[]>('get_chapter', {
+        bibleId: primaryBibleId,
+        bookNumber: bookNumber,
+        chapterNumber: verse.chapter,
+        secondaryBibleId: secondaryBibleId
+      });
+
+      setActiveVerses(chapterVerses, 'bible', null);
+
+      const cleanText = (t: string) => t.replace(/\s*\([^)]*\)\s*$/, '');
+      const targetIndex = chapterVerses.findIndex(v => v.verse_num == verse.verse_num);
+      const finalIndex = Math.max(0, targetIndex);
+
+      setActiveSlideIndex(finalIndex);
+
+      if (chapterVerses[finalIndex]) {
+        const v = chapterVerses[finalIndex];
+        const englishBook = v.book_name;
+        const hindiBook = bookTranslationMap[englishBook] || englishBook;
+        const title = `${hindiBook} (${englishBook}) ${v.chapter}:${v.verse_num}`;
+        const primaryText = cleanText(v.text);
+        const secondaryText = v.secondary_text ? cleanText(v.secondary_text) : undefined;
+        setSlideText(primaryText, secondaryText, title, 'bible');
+      }
+    } catch (err) {
+      console.error("Failed to load chapter for verse click", err);
+    }
   };
 
   const handleSongClick = async (song: Song, autoProject: boolean = false) => {
@@ -437,7 +469,7 @@ export default function LeftPane() {
       setActiveVerses(mappedVerses, 'song', song.id, song.title);
       if (autoProject && mappedVerses.length > 0) {
         setActiveSlideIndex(0);
-        setSlideText(mappedVerses[0].text, undefined, undefined, 'song');
+        setSlideText(mappedVerses[0].text.replace(/^\[.*?\]\s*\n/, ''), undefined, song.title, 'song');
       }
     } catch (err) {
       console.error(err);
@@ -719,7 +751,7 @@ export default function LeftPane() {
               className="text-muted-foreground hover:text-blue-400 transition-colors p-1"
               title="Import Veritas Songs XML"
             >
-              {isImportingXML ? <Loader2 size={18} className="animate-spin" /> : <FileUp size={18} />}
+              {isImportingXML ? <Loader2 size={18} className="animate-spin" /> : <FileDown size={18} />}
             </button>
             <button
               onClick={() => {
@@ -738,19 +770,19 @@ export default function LeftPane() {
       </div>
 
       {importNameModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <form onSubmit={handleConfirmImport} className="bg-background border border-border rounded-lg shadow-xl w-full max-w-sm flex flex-col animate-in zoom-in-95 duration-200">
-            <div className="p-4 border-b border-border flex justify-between items-center">
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <form onSubmit={handleConfirmImport} className="bg-card border border-border/50 rounded-xl shadow-2xl w-full max-w-sm flex flex-col animate-in zoom-in-95 duration-200">
+            <div className="p-4 border-b border-border/50 flex justify-between items-center">
               <span className="font-semibold text-lg">Name this Bible</span>
               <button type="button" onClick={() => { setImportNameModalOpen(false); setPendingImportFile(null); }} className="text-muted-foreground hover:text-white">&times;</button>
             </div>
             <div className="p-4">
               <label className="block text-sm font-medium mb-2">Custom Name (Optional)</label>
-              <input 
-                type="text" 
-                value={importBibleName} 
-                onChange={e => setImportBibleName(e.target.value)} 
-                placeholder="Leave blank to use default name" 
+              <input
+                type="text"
+                value={importBibleName}
+                onChange={e => setImportBibleName(e.target.value)}
+                placeholder="Leave blank to use default name"
                 className="w-full bg-background border border-border rounded p-2 text-sm text-foreground focus:outline-none focus:border-blue-500"
                 autoFocus
               />
@@ -764,9 +796,9 @@ export default function LeftPane() {
       )}
 
       {isSongModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-background border border-border rounded-lg shadow-xl w-full max-w-3xl flex flex-col max-h-[90%] animate-in zoom-in-95 duration-200">
-            <div className="p-4 border-b border-border flex justify-between items-center shrink-0">
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-card border border-border/50 rounded-xl shadow-2xl w-full max-w-3xl flex flex-col max-h-[90%] animate-in zoom-in-95 duration-200">
+            <div className="p-4 border-b border-border/50 flex justify-between items-center shrink-0">
               <div className="flex items-center gap-4">
                 <span className="font-semibold text-lg">{editingSongId !== null ? 'Edit Song' : 'Add Song'}</span>
                 <div className="flex bg-secondary/50 rounded-lg p-1 border border-border">
@@ -986,69 +1018,69 @@ export default function LeftPane() {
       {/* Manual Bible Navigation */}
       {activeTab === 'bibles' && (
         <>
-          <div 
+          <div
             className="border-b border-border bg-background/30 flex shrink-0"
             style={{ height: bibleNavHeight }}
           >
             {/* Books */}
-          <div className="flex-[3] border-r border-border overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent py-1">
-            {books.map(b => (
-              <button
-                key={b.id}
-                onClick={() => setSelectedBookNumber(b.number)}
-                className={clsx(
-                  "w-full text-left px-3 py-1.5 text-[11px] transition-colors truncate",
-                  selectedBookNumber === b.number
-                    ? "bg-blue-500/10 text-blue-400 font-bold border-r-2 border-blue-500"
-                    : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                )}
-              >
-                {b.name}
-              </button>
-            ))}
+            <div className="flex-[3] border-r border-border overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent py-1">
+              {books.map(b => (
+                <button
+                  key={b.id}
+                  onClick={() => setSelectedBookNumber(b.number)}
+                  className={clsx(
+                    "w-full text-left px-3 py-1.5 text-[11px] transition-colors truncate",
+                    selectedBookNumber === b.number
+                      ? "bg-blue-500/10 text-blue-400 font-bold border-r-2 border-blue-500"
+                      : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  )}
+                >
+                  {b.name}
+                </button>
+              ))}
+            </div>
+            {/* Chapters */}
+            <div className="flex-[2] border-r border-border overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent py-1">
+              {Array.from({ length: chapterCount }, (_, i) => i + 1).map(c => (
+                <button
+                  key={c}
+                  onClick={() => setSelectedChapter(c)}
+                  className={clsx(
+                    "w-full text-left px-3 py-1.5 text-[11px] transition-colors",
+                    selectedChapter === c
+                      ? "bg-blue-500/10 text-blue-400 font-bold border-r-2 border-blue-500"
+                      : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  )}
+                >
+                  Ch {c}
+                </button>
+              ))}
+              {chapterCount === 0 && <div className="p-3 text-[11px] text-muted-foreground/50 text-center">Chapter</div>}
+            </div>
+            {/* Verses */}
+            <div className="flex-[2] overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent py-1">
+              {Array.from({ length: verseCount }, (_, i) => i + 1).map(v => (
+                <button
+                  key={v}
+                  onClick={() => handleManualJump(v)}
+                  className={clsx(
+                    "w-full text-left px-3 py-1.5 text-[11px] transition-colors",
+                    selectedVerse === v
+                      ? "bg-blue-500/10 text-blue-400 font-bold border-r-2 border-blue-500"
+                      : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  )}
+                >
+                  {v}
+                </button>
+              ))}
+              {verseCount === 0 && <div className="p-3 text-[11px] text-muted-foreground/50 text-center">Verse</div>}
+            </div>
           </div>
-          {/* Chapters */}
-          <div className="flex-[2] border-r border-border overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent py-1">
-            {Array.from({ length: chapterCount }, (_, i) => i + 1).map(c => (
-              <button
-                key={c}
-                onClick={() => setSelectedChapter(c)}
-                className={clsx(
-                  "w-full text-left px-3 py-1.5 text-[11px] transition-colors",
-                  selectedChapter === c
-                    ? "bg-blue-500/10 text-blue-400 font-bold border-r-2 border-blue-500"
-                    : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                )}
-              >
-                Ch {c}
-              </button>
-            ))}
-            {chapterCount === 0 && <div className="p-3 text-[11px] text-muted-foreground/50 text-center">Chapter</div>}
-          </div>
-          {/* Verses */}
-          <div className="flex-[2] overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent py-1">
-            {Array.from({ length: verseCount }, (_, i) => i + 1).map(v => (
-              <button
-                key={v}
-                onClick={() => handleManualJump(v)}
-                className={clsx(
-                  "w-full text-left px-3 py-1.5 text-[11px] transition-colors",
-                  selectedVerse === v
-                    ? "bg-blue-500/10 text-blue-400 font-bold border-r-2 border-blue-500"
-                    : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                )}
-              >
-                {v}
-              </button>
-            ))}
-            {verseCount === 0 && <div className="p-3 text-[11px] text-muted-foreground/50 text-center">Verse</div>}
-          </div>
-        </div>
-        {/* Bible Nav Resize Handle */}
-        <div 
-          className="h-1 w-full cursor-row-resize bg-border hover:bg-blue-500 active:bg-blue-600 transition-colors z-20 shrink-0"
-          onMouseDown={handleBibleNavDragStart}
-        />
+          {/* Bible Nav Resize Handle */}
+          <div
+            className="h-1 w-full cursor-row-resize bg-border hover:bg-blue-500 active:bg-blue-600 transition-colors z-20 shrink-0"
+            onMouseDown={handleBibleNavDragStart}
+          />
         </>
       )}
 
@@ -1144,13 +1176,13 @@ export default function LeftPane() {
       {activeTab === 'bibles' && (
         <>
           {/* Resize Handle */}
-          <div 
+          <div
             className="h-1 w-full cursor-row-resize bg-border hover:bg-blue-500 active:bg-blue-600 transition-colors z-20 shrink-0"
             onMouseDown={handleDragStart}
           />
 
           {/* Persistent History Panel */}
-          <div 
+          <div
             className="shrink-0 bg-card flex flex-col min-h-0"
             style={{ height: historyHeight }}
           >
@@ -1184,9 +1216,9 @@ export default function LeftPane() {
 
       {/* Manage Bibles Modal */}
       {isManageBiblesOpen && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-card border border-border rounded-lg shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[80vh] animate-in zoom-in-95 duration-200">
-            <div className="p-4 border-b border-border flex justify-between items-center bg-secondary/50">
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-card border border-border/50 rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[80vh] animate-in zoom-in-95 duration-200">
+            <div className="p-4 border-b border-border/50 flex justify-between items-center">
               <h2 className="font-semibold text-foreground flex items-center gap-2">
                 <Settings size={18} className="text-blue-400" /> Manage Bibles
               </h2>
@@ -1203,7 +1235,7 @@ export default function LeftPane() {
               ) : (
                 <div className="space-y-1">
                   {bibles.map(bible => (
-                    <div key={bible.id} className="flex items-center justify-between p-3 rounded-md bg-background border border-border hover:border-blue-500/50 transition-colors group">
+                    <div key={bible.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-secondary/50 border border-transparent hover:border-border transition-colors group">
                       {editingBibleId === bible.id ? (
                         <div className="flex items-center flex-1 mr-4 gap-2">
                           <input

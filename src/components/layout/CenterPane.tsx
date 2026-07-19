@@ -6,12 +6,13 @@ import { invoke } from '@tauri-apps/api/core';
 import { bookTranslationMap } from '../../utils/bibleMap';
 import { confirm, message } from '@tauri-apps/plugin-dialog';
 import { emit } from '@tauri-apps/api/event';
+import { parseBibleReference } from '../../utils/bibleParser';
 import { useStore, Verse } from '../../store/useStore';
 
 export default function CenterPane() {
   const activeTab = useStore((state) => state.activeTab);
   const isBible = activeTab === 'bibles';
-  
+
   const activeItem = useStore((state) => isBible ? state.bibleState : state.songState);
   const activeSlideIndex = activeItem.slideIndex;
   const activeVerses = activeItem.verses;
@@ -21,7 +22,7 @@ export default function CenterPane() {
 
   const setActiveSlideIndex = useStore((state) => state.setActiveSlideIndex);
   const setSlideText = useStore((state) => state.setSlideText);
-  const toggleBlackout = useStore((state) => state.toggleBlackout);
+
   const activeItemRef = useRef<HTMLDivElement>(null);
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -92,7 +93,7 @@ export default function CenterPane() {
       setIsSaving(false);
       setIsEditModalOpen(false);
       await emit('song-updated');
-      
+
       // Reload verses
       const lyrics = await invoke<{ id: number, song_id: number, verse_order: number, text: string }[]>('get_song_lyrics', { songId: activeItemId });
       const mappedVerses: Verse[] = lyrics.map(l => ({
@@ -126,7 +127,7 @@ export default function CenterPane() {
     } else {
       const primaryText = cleanText(verse.text);
       const secondaryText = verse.secondary_text ? cleanText(verse.secondary_text) : undefined;
-      setSlideText(primaryText, secondaryText, undefined, 'song');
+      setSlideText(primaryText, secondaryText, activeItemTitle, 'song');
     }
   };
 
@@ -138,34 +139,188 @@ export default function CenterPane() {
   }, [activeSlideIndex]);
 
   useEffect(() => {
-    const unlisten = listen<string>('remote_action', (event) => {
-      const action = event.payload;
-
-      if (action === 'clear') {
-        toggleBlackout();
-        return;
+    const unlisten = listen<any>('remote_action', (event) => {
+      console.log('Received remote action:', event.payload);
+      let payload: any = event.payload;
+      if (typeof payload === 'string') {
+        try {
+          payload = JSON.parse(payload);
+        } catch (e) {
+          payload = { action: payload };
+        }
       }
 
+      const action = payload.action;
       const state = useStore.getState();
-      
-      if (action === 'next') {
+
+      if (action === 'clear') {
+        state.toggleBlackout();
+      } else if (action === 'next') {
         state.goToNextSlide();
       } else if (action === 'prev') {
         state.goToPrevSlide();
+      } else if (action === 'go_to_slide') {
+        state.setActiveSlideIndex(payload.index);
+        const activeItem = state.activeTab === 'bibles' ? state.bibleState : state.songState;
+        if (activeItem.verses[payload.index]) {
+          const verse = activeItem.verses[payload.index];
+          let title = activeItem.title;
+          if (state.activeTab === 'bibles') {
+            const englishBook = verse.book_name;
+            const hindiBook = bookTranslationMap[englishBook] || englishBook;
+            title = `${hindiBook} (${englishBook}) ${verse.chapter}:${verse.verse_num}`;
+          }
+          const primaryText = cleanText(verse.text);
+          const secondaryText = verse.secondary_text ? cleanText(verse.secondary_text) : undefined;
+          state.setSlideText(primaryText, secondaryText, title, state.activeTab === 'bibles' ? 'bible' : 'song');
+        }
+      } else if (action === 'get_state') {
+        const activeItem = state.activeTab === 'bibles' ? state.bibleState : state.songState;
+        invoke('broadcast_slide_state', {
+          payload: JSON.stringify({
+            title: state.title,
+            text: state.text,
+            subtext: state.subtext,
+            contentType: state.contentType,
+            isBlackout: state.isBlackout,
+            theme: state.theme,
+            playlist: activeItem.verses,
+            slideIndex: activeItem.slideIndex,
+          })
+        }).catch(console.error);
+      } else if (action === 'search_songs') {
+        invoke('search_songs', { query: payload.query }).then(results => {
+          invoke('broadcast_slide_state', {
+            payload: JSON.stringify({ type: 'search_results', results })
+          }).catch(console.error);
+        }).catch(console.error);
+      } else if (action === 'select_song') {
+        const songId = payload.id;
+        const title = payload.title || "Song";
+        invoke<any[]>('get_song_lyrics', { songId }).then(lyrics => {
+          const mappedVerses: Verse[] = lyrics.map(l => ({
+            id: l.id,
+            book_id: l.song_id,
+            book_name: title,
+            chapter: 1,
+            verse_num: l.verse_order,
+            text: l.text,
+            secondary_text: undefined
+          }));
+          state.setActiveTab('songs');
+          state.setActiveVerses(mappedVerses, 'song', songId, title);
+          state.setActiveSlideIndex(0);
+          if (mappedVerses.length > 0) {
+            state.setSlideText(cleanText(mappedVerses[0].text), undefined, title, 'song');
+          }
+        }).catch(console.error);
+      } else if (action === 'search_verses') {
+        const primaryBibleId = parseInt(localStorage.getItem('veritas_primaryBibleId') || '1') || 1;
+        const savedSec = localStorage.getItem('veritas_secondaryBibleId');
+        const secondaryBibleId = (savedSec && savedSec !== 'null') ? parseInt(savedSec) : null;
+        
+        const parsedRef = parseBibleReference(payload.query);
+        if (parsedRef) {
+          invoke('get_chapter', {
+            bibleId: primaryBibleId,
+            bookNumber: parsedRef.bookNumber,
+            chapterNumber: parsedRef.chapter,
+            secondaryBibleId
+          }).then((chapterVerses: any) => {
+            let results = chapterVerses;
+            if (parsedRef.verse !== undefined) {
+              const targetVerse = chapterVerses.find((v: any) => v.verse_num == parsedRef.verse);
+              results = targetVerse ? [targetVerse] : [];
+            }
+            if (results.length === 0) {
+              results = [{ id: 0, book_id: 0, book_name: 'Debug', chapter: parsedRef.chapter, verse_num: parsedRef.verse || 0, text: `No verses found. BibleID: ${primaryBibleId}, Book: ${parsedRef.bookNumber}, Chap: ${parsedRef.chapter}, Sec: ${secondaryBibleId}, ChVsLen: ${chapterVerses.length}` }];
+            }
+            invoke('broadcast_slide_state', { 
+              payload: JSON.stringify({ type: 'search_results_bible', results }) 
+            }).catch(console.error);
+          }).catch((err) => {
+            invoke('broadcast_slide_state', { 
+              payload: JSON.stringify({ type: 'search_results_bible', results: [{ id: 0, book_id: 0, book_name: 'Error', chapter: 0, verse_num: 0, text: err.toString() }] }) 
+            });
+          });
+        } else {
+          invoke('search_verses', { query: payload.query, primaryBibleId, secondaryBibleId, testamentFilter: null }).then((results: any) => {
+            if (results.length === 0) {
+              results = [{ id: 0, book_id: 0, book_name: 'Debug', chapter: 0, verse_num: 0, text: `FTS empty. BibleID: ${primaryBibleId}, Query: ${payload.query}` }];
+            }
+            invoke('broadcast_slide_state', { 
+              payload: JSON.stringify({ type: 'search_results_bible', results }) 
+            }).catch(console.error);
+          }).catch((err) => {
+            invoke('broadcast_slide_state', { 
+              payload: JSON.stringify({ type: 'search_results_bible', results: [{ id: 0, book_id: 0, book_name: 'Error', chapter: 0, verse_num: 0, text: err.toString() }] }) 
+            });
+          });
+        }
+      } else if (action === 'select_verse') {
+        const verse = payload.verse;
+        
+        const primaryBibleId = parseInt(localStorage.getItem('veritas_primaryBibleId') || '1') || 1;
+        const savedSec = localStorage.getItem('veritas_secondaryBibleId');
+        const secondaryBibleId = (savedSec && savedSec !== 'null') ? parseInt(savedSec) : null;
+
+        invoke('get_books', { bibleId: primaryBibleId }).then((books: any) => {
+          const book = books.find((b: any) => b.id === verse.book_id);
+          const bookNumber = book ? book.number : 1;
+
+          invoke('get_chapter', {
+            bibleId: primaryBibleId,
+            bookNumber: bookNumber,
+            chapterNumber: verse.chapter,
+            secondaryBibleId
+          }).then((chapterVerses: any) => {
+            state.setActiveTab('bibles');
+            state.setActiveVerses(chapterVerses, 'bible', null);
+            
+            const targetIndex = chapterVerses.findIndex((v: any) => v.verse_num == verse.verse_num);
+            if (targetIndex === -1) {
+              invoke('broadcast_slide_state', { 
+                payload: JSON.stringify({ type: 'search_results_bible', results: [{ id: 0, book_id: 0, book_name: 'Error', chapter: verse.chapter, verse_num: verse.verse_num, text: `Verse not found in chapter. book_id=${verse.book_id}, computed_bookNumber=${bookNumber}, chapterVerses length=${chapterVerses.length}` }] }) 
+              });
+            }
+            
+            const finalIndex = Math.max(0, targetIndex);
+            state.setActiveSlideIndex(finalIndex);
+            
+            if (chapterVerses[finalIndex]) {
+              const v = chapterVerses[finalIndex];
+              const englishBook = v.book_name;
+              const hindiBook = bookTranslationMap[englishBook] || englishBook;
+              const title = `${hindiBook} (${englishBook}) ${v.chapter}:${v.verse_num}`;
+              const primaryText = cleanText(v.text);
+              const secondaryText = v.secondary_text ? cleanText(v.secondary_text) : undefined;
+              
+              state.setSlideText(primaryText, secondaryText, title, 'bible');
+            }
+          }).catch((err) => {
+            invoke('broadcast_slide_state', { 
+              payload: JSON.stringify({ type: 'search_results_bible', results: [{ id: 0, book_id: 0, book_name: 'Error', chapter: 0, verse_num: 0, text: `get_chapter error: ${err.toString()}` }] }) 
+            });
+          });
+        }).catch((err) => {
+          invoke('broadcast_slide_state', { 
+            payload: JSON.stringify({ type: 'search_results_bible', results: [{ id: 0, book_id: 0, book_name: 'Error', chapter: 0, verse_num: 0, text: `get_books error: ${err.toString()}` }] }) 
+          });
+        });
       }
     });
 
     return () => {
       unlisten.then(fn => fn());
     };
-  }, [toggleBlackout]);
+  }, []);
 
   return (
     <div className="flex-1 h-full bg-background flex flex-col relative overflow-hidden">
       {/* Edit Modal */}
       {isEditModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-background border border-border rounded-lg shadow-xl w-full max-w-3xl flex flex-col max-h-[90%] animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-card border border-border/50 rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
             <div className="p-4 border-b border-border flex justify-between items-center shrink-0">
               <div className="flex items-center gap-4">
                 <span className="font-semibold text-lg">Edit Song</span>

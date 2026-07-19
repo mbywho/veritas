@@ -1,145 +1,135 @@
 <!DOCTYPE html>
 <html>
-
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Remote - Veritas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body {
-            margin: 0;
-            padding: 20px;
-            background: #09090b;
-            color: white;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            box-sizing: border-box;
-        }
-
-        .header {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-
-        .header h1 {
-            margin: 0;
-            font-size: 24px;
-            color: #6366f1;
-        }
-
-        .header p {
-            margin: 5px 0 0;
-            color: #a1a1aa;
-            font-size: 14px;
-        }
-
-        .slide-preview {
-            background: #18181b;
-            border: 1px solid #27272a;
-            border-radius: 12px;
-            padding: 20px;
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            margin-bottom: 20px;
-        }
-
-        #preview-text {
-            font-size: 24px;
-            font-weight: 600;
-            margin-bottom: 10px;
-        }
-
-        #preview-subtext {
-            font-size: 16px;
-            color: #a1a1aa;
-        }
-
-        .controls {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-        }
-
-        button {
-            background: #27272a;
-            border: none;
-            color: white;
-            padding: 25px;
-            border-radius: 12px;
-            font-size: 18px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-
-        button:active {
-            background: #3f3f46;
-            transform: scale(0.98);
-        }
-
-        .btn-primary {
-            background: #6366f1;
-        }
-
-        .btn-primary:active {
-            background: #4f46e5;
-        }
-
-        .btn-danger {
-            background: #f43f5e;
-            grid-column: span 2;
-        }
-
-        .btn-danger:active {
-            background: #e11d48;
-        }
+        body { background: #09090b; color: white; -webkit-tap-highlight-color: transparent; }
+        .tab-btn.active { border-bottom: 2px solid #6366f1; color: #6366f1; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
     </style>
 </head>
+<body class="h-screen flex flex-col">
+    <!-- Header -->
+    <header class="p-4 border-b border-zinc-800 flex justify-between items-center bg-zinc-950/80 backdrop-blur sticky top-0 z-10">
+        <h1 class="text-xl font-bold text-indigo-500">Veritas Remote</h1>
+        <div id="status" class="text-xs font-medium px-2 py-1 bg-zinc-800 text-zinc-400 rounded-full">Connecting...</div>
+    </header>
 
-<body>
-
-    <div class="header">
-        <h1>Veritas Remote</h1>
-        <p id="status">Connecting...</p>
+    <!-- Tabs -->
+    <div class="flex border-b border-zinc-800 bg-zinc-900">
+        <button onclick="switchTab('live')" id="tab-live" class="tab-btn active flex-1 py-3 text-sm font-semibold text-zinc-400 uppercase tracking-wider transition-colors">Live</button>
+        <button onclick="switchTab('search')" id="tab-search" class="tab-btn flex-1 py-3 text-sm font-semibold text-zinc-400 uppercase tracking-wider transition-colors">Search</button>
     </div>
 
-    <div class="slide-preview">
-        <div id="preview-text">...</div>
-        <div id="preview-subtext"></div>
+    <!-- Live Tab -->
+    <div id="content-live" class="tab-content active flex-1 overflow-y-auto pb-32">
+        <!-- Preview -->
+        <div class="p-4">
+            <div class="bg-zinc-900/50 backdrop-blur-md border border-zinc-800/80 rounded-2xl p-6 text-center min-h-[160px] flex flex-col justify-center items-center shadow-2xl relative ring-1 ring-white/5">
+                <div id="preview-title" class="text-xs font-bold text-indigo-400 mb-3 uppercase tracking-widest drop-shadow-sm"></div>
+                <div id="preview-text" class="text-2xl font-bold mb-3 break-words max-w-full leading-tight drop-shadow-md">...</div>
+                <div id="preview-subtext" class="text-lg text-zinc-400 break-words max-w-full leading-snug drop-shadow-sm"></div>
+            </div>
+        </div>
+
+
+
+        <!-- Playlist -->
+        <div class="px-4">
+            <h2 class="text-xs uppercase font-bold text-zinc-500 tracking-wider mb-3 px-1">Playlist</h2>
+            <div id="playlist-container" class="space-y-2">
+                <div class="text-zinc-500 text-sm italic px-1">No playlist loaded</div>
+            </div>
+        </div>
     </div>
 
-    <div class="controls">
-        <button onclick="sendCommand('prev')">PREV</button>
-        <button onclick="sendCommand('next')" class="btn-primary">NEXT</button>
-        <button onclick="sendCommand('clear')" class="btn-danger">CLEAR SCREEN</button>
+    <!-- Search Tab -->
+    <div id="content-search" class="tab-content flex-1 overflow-y-auto bg-zinc-950 pb-32">
+        <div class="p-4 sticky top-0 bg-zinc-950/90 backdrop-blur border-b border-zinc-800 z-10 flex flex-col gap-3">
+            <div class="flex bg-zinc-900 rounded-lg p-1 gap-1">
+                <button id="search-type-song" type="button" onclick="setSearchType('song')" class="flex-1 py-1.5 text-sm font-bold rounded-md bg-zinc-700 text-white shadow-sm transition-all">Songs</button>
+                <button id="search-type-bible" type="button" onclick="setSearchType('bible')" class="flex-1 py-1.5 text-sm font-bold rounded-md text-zinc-400 hover:text-zinc-200 transition-all">Bible</button>
+            </div>
+            <form onsubmit="performSearch(event)" class="flex gap-2">
+                <input type="text" id="search-input" placeholder="Search songs..." class="flex-1 bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 text-white outline-none focus:border-indigo-500 transition-colors">
+                <button type="submit" class="bg-indigo-600 active:bg-indigo-500 px-6 rounded-xl font-bold shadow text-white">Go</button>
+            </form>
+        </div>
+        <div id="search-results" class="p-4 space-y-2">
+            <div class="text-zinc-500 text-sm italic text-center mt-8">Search for a song to display results</div>
+        </div>
+    </div>
+
+    <!-- Fixed Bottom Action Bar -->
+    <div class="fixed bottom-0 left-0 right-0 p-4 pb-8 bg-zinc-950/80 backdrop-blur-xl border-t border-zinc-800/80 grid grid-cols-[1fr_1.5fr_1fr] gap-3 z-50 shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
+        <button onclick="sendCommand('prev')" class="bg-zinc-800/80 hover:bg-zinc-700 active:bg-zinc-600 py-3 rounded-2xl font-bold flex flex-col items-center justify-center gap-1 transition-all active:scale-95 border border-zinc-700/50 text-zinc-300">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="opacity-80"><path d="m15 18-6-6 6-6"/></svg>
+            <span class="text-[10px] uppercase tracking-widest opacity-70">Prev</span>
+        </button>
+        <button onclick="sendCommand('clear')" class="bg-rose-500/10 hover:bg-rose-500/20 active:bg-rose-500/30 py-3 rounded-2xl font-bold flex flex-col items-center justify-center gap-1 transition-all active:scale-95 border border-rose-500/20 text-rose-400">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="opacity-80"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/><line x1="3" x2="21" y1="3" y2="21"/></svg>
+            <span class="text-[10px] uppercase tracking-widest opacity-80">Clear</span>
+        </button>
+        <button onclick="sendCommand('next')" class="bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-400 py-3 rounded-2xl font-bold flex flex-col items-center justify-center gap-1 transition-all active:scale-95 shadow-[0_0_20px_rgba(79,70,229,0.3)] border border-indigo-500/50 text-white">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+            <span class="text-[10px] uppercase tracking-widest opacity-90">Next</span>
+        </button>
     </div>
 
     <script>
         let ws;
 
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active', 'text-indigo-400'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            document.getElementById(`tab-${tab}`).classList.add('active', 'text-indigo-400');
+            document.getElementById(`content-${tab}`).classList.add('active');
+        }
+
         function connect() {
             ws = new WebSocket(`ws://${window.location.host}/ws`);
             const status = document.getElementById('status');
 
-            ws.onopen = () => status.textContent = 'Connected';
+            ws.onopen = () => {
+                status.textContent = 'Connected';
+                status.classList.remove('bg-zinc-800', 'text-zinc-400', 'bg-rose-900/50', 'text-rose-400');
+                status.classList.add('bg-emerald-900/50', 'text-emerald-400');
+                ws.send(JSON.stringify({ action: 'get_state' }));
+            };
             ws.onclose = () => {
-                status.textContent = 'Disconnected. Reconnecting...';
+                status.textContent = 'Disconnected';
+                status.classList.remove('bg-emerald-900/50', 'text-emerald-400', 'bg-zinc-800', 'text-zinc-400');
+                status.classList.add('bg-rose-900/50', 'text-rose-400');
                 setTimeout(connect, 1000);
             };
 
             ws.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                if (data.isBlackout) {
-                    document.getElementById('preview-text').textContent = '[ SCREEN CLEARED ]';
-                    document.getElementById('preview-subtext').textContent = '';
-                } else {
-                    document.getElementById('preview-text').textContent = data.text || 'No active slide';
-                    document.getElementById('preview-subtext').textContent = data.subtext || '';
+                let data;
+                try { data = JSON.parse(event.data); } catch (e) { return; }
+
+                if (data.type === 'search_results') {
+                    renderSearchResults(data.results);
+                } else if (data.type === 'search_results_bible') {
+                    renderBibleResults(data.results);
+                } else if (data.text !== undefined || data.isBlackout !== undefined) {
+                    // SlideState payload
+                    if (data.isBlackout) {
+                        document.getElementById('preview-title').textContent = '';
+                        document.getElementById('preview-text').textContent = '[ SCREEN CLEARED ]';
+                        document.getElementById('preview-subtext').textContent = '';
+                    } else {
+                        document.getElementById('preview-title').textContent = data.title || '';
+                        document.getElementById('preview-text').textContent = data.text || 'No active slide';
+                        document.getElementById('preview-subtext').textContent = data.subtext || '';
+                    }
+
+                    if (data.playlist) {
+                        renderPlaylist(data.playlist, data.slideIndex);
+                    }
                 }
             };
         }
@@ -149,9 +139,131 @@
                 ws.send(JSON.stringify({ action }));
             }
         }
+        
+        function goToSlide(index) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ action: 'go_to_slide', index }));
+            }
+        }
+
+        function renderPlaylist(playlist, activeIndex) {
+            const container = document.getElementById('playlist-container');
+            if (!playlist || playlist.length === 0) {
+                container.innerHTML = `<div class="text-zinc-500 text-sm italic px-1">No playlist loaded</div>`;
+                return;
+            }
+
+            container.innerHTML = playlist.map((verse, index) => {
+                const isActive = index === activeIndex;
+                const activeClasses = isActive 
+                    ? 'bg-indigo-900/40 border-indigo-500/50 text-indigo-100' 
+                    : 'bg-zinc-900 border-zinc-800 active:bg-zinc-800 text-zinc-300';
+                
+                let text = verse.text || '';
+                // Simple formatting to remove brackets for display if needed
+                text = text.replace(/^\[.*?\]\s*\n/, '').trim();
+                
+                return `
+                    <button onclick="goToSlide(${index})" class="w-full text-left p-4 rounded-xl border transition-colors ${activeClasses}">
+                        <div class="flex gap-3">
+                            <span class="text-xs font-bold text-zinc-500 w-6 shrink-0 mt-0.5">${index + 1}</span>
+                            <span class="text-sm ${isActive ? 'font-medium' : ''} leading-relaxed">${text}</span>
+                        </div>
+                    </button>
+                `;
+            }).join('');
+        }
+
+        let currentSearchType = 'song';
+        
+        function setSearchType(type) {
+            currentSearchType = type;
+            const songBtn = document.getElementById('search-type-song');
+            const bibleBtn = document.getElementById('search-type-bible');
+            const input = document.getElementById('search-input');
+            
+            if (type === 'song') {
+                songBtn.className = 'flex-1 py-1.5 text-sm font-bold rounded-md bg-zinc-700 text-white shadow-sm transition-all';
+                bibleBtn.className = 'flex-1 py-1.5 text-sm font-bold rounded-md text-zinc-400 hover:text-zinc-200 transition-all';
+                input.placeholder = 'Search songs...';
+            } else {
+                bibleBtn.className = 'flex-1 py-1.5 text-sm font-bold rounded-md bg-zinc-700 text-white shadow-sm transition-all';
+                songBtn.className = 'flex-1 py-1.5 text-sm font-bold rounded-md text-zinc-400 hover:text-zinc-200 transition-all';
+                input.placeholder = 'Search bible (e.g. John 3:16)';
+            }
+            document.getElementById('search-results').innerHTML = '';
+        }
+
+        function performSearch(e) {
+            e.preventDefault();
+            const input = document.getElementById('search-input');
+            const query = input.value.trim();
+            if (query && ws && ws.readyState === WebSocket.OPEN) {
+                document.getElementById('search-results').innerHTML = `<div class="text-zinc-500 text-sm italic text-center mt-8">Searching...</div>`;
+                if (currentSearchType === 'song') {
+                    ws.send(JSON.stringify({ action: 'search_songs', query }));
+                } else {
+                    ws.send(JSON.stringify({ action: 'search_verses', query }));
+                }
+                input.blur();
+            }
+        }
+
+        function selectSong(id, title) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ action: 'select_song', id, title }));
+                switchTab('live'); // Go back to live view automatically
+            }
+        }
+
+        function renderSearchResults(results) {
+            const container = document.getElementById('search-results');
+            if (!results || results.length === 0) {
+                container.innerHTML = `<div class="text-zinc-500 text-sm italic text-center mt-8">No songs found</div>`;
+                return;
+            }
+
+            container.innerHTML = results.map(song => `
+                <button onclick="selectSong(${song.id}, '${song.title.replace(/'/g, "\\'")}')" 
+                        class="w-full text-left bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 p-4 rounded-xl transition-colors group">
+                    <div class="font-bold text-white group-hover:text-indigo-400 transition-colors">${song.title}</div>
+                    ${song.artist ? `<div class="text-sm text-zinc-500 mt-1">${song.artist}</div>` : ''}
+                </button>
+            `).join('');
+        }
+
+        function selectVerse(verseJson) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                // Decode URI component since we might encode it to safely pass in HTML string
+                const verse = JSON.parse(decodeURIComponent(verseJson));
+                ws.send(JSON.stringify({ action: 'select_verse', verse }));
+                switchTab('live');
+            }
+        }
+
+        function renderBibleResults(results) {
+            const container = document.getElementById('search-results');
+            if (!results || results.length === 0) {
+                container.innerHTML = `<div class="text-zinc-500 text-sm italic text-center mt-8">No verses found</div>`;
+                return;
+            }
+
+            container.innerHTML = results.map(verse => {
+                const title = `${verse.book_name} ${verse.chapter}:${verse.verse_num}`;
+                // safely pass object
+                const safeVerse = encodeURIComponent(JSON.stringify(verse)).replace(/'/g, "%27");
+                return `
+                <button onclick="selectVerse('${safeVerse}')" 
+                        class="w-full text-left bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 p-4 rounded-xl transition-colors group">
+                    <div class="font-bold text-white group-hover:text-indigo-400 transition-colors">${title}</div>
+                    <div class="text-sm text-zinc-400 mt-2 line-clamp-2 leading-relaxed">${verse.text.replace(/^\[.*?\]\s*\n/, '')}</div>
+                </button>
+                `;
+            }).join('');
+        }
 
         connect();
+        switchTab('live');
     </script>
 </body>
-
 </html>

@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use tower_http::services::ServeFile;
 use tower::ServiceExt;
 use futures_util::{sink::SinkExt, stream::StreamExt};
-use serde::Deserialize;
+
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
 use tokio::sync::broadcast;
@@ -22,10 +22,6 @@ pub struct ServerState {
     pub app_handle: AppHandle,
 }
 
-#[derive(Deserialize)]
-struct RemoteCommand {
-    action: String,
-}
 
 pub async fn start_server(app_handle: AppHandle, tx: broadcast::Sender<String>, shutdown_rx: tokio::sync::oneshot::Receiver<()>) {
     let state = Arc::new(ServerState { tx, app_handle });
@@ -104,12 +100,11 @@ async fn handle_socket(socket: WebSocket, state: Arc<ServerState>) {
         }
     });
 
-    // Spawn a task that receives messages from the websocket and emits to Tauri
     let mut recv_task = tokio::spawn(async move {
-        while let Some(Ok(Message::Text(text))) = receiver.next().await {
-            if let Ok(cmd) = serde_json::from_str::<RemoteCommand>(&text) {
-                // Emit event to React UI
-                let _ = app_handle.emit("remote_action", cmd.action);
+        while let Some(Ok(msg)) = receiver.next().await {
+            if let Message::Text(text) = msg {
+                // Emit the raw JSON string directly to React UI
+                let _ = app_handle.emit("remote_action", text);
             }
         }
     });

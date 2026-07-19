@@ -148,7 +148,7 @@ export default function Projector({ isPreview = false }: { isPreview?: boolean }
         className="absolute inset-0 flex flex-col pointer-events-none z-10"
         style={{ padding: `${(theme?.padding ?? 0) + 2}%` }}
       >
-        {title && (
+        {title && contentType !== 'song' && (
           <div className="pt-1 w-full text-center shrink-0">
             <h2
               className=""
@@ -190,6 +190,7 @@ export default function Projector({ isPreview = false }: { isPreview?: boolean }
                   color: theme?.fontColor || 'white',
                   textShadow: theme?.textShadow || '2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 0 10px 25px rgba(0,0,0,1)',
                   fontWeight: theme?.fontWeight ?? 800,
+                  lineHeight: theme?.lineHeight ?? 1.2,
                   transform: 'scale(1)'
                 }}
               >
@@ -215,6 +216,7 @@ export default function Projector({ isPreview = false }: { isPreview?: boolean }
                     color: theme?.fontColor || 'white',
                     textShadow: theme?.textShadow || '2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 0 10px 25px rgba(0,0,0,1)',
                     fontWeight: theme?.fontWeight ?? 800,
+                    lineHeight: theme?.lineHeight ?? 1.2,
                   }}
                 >
                   {subtext}

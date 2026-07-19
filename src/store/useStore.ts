@@ -40,6 +40,7 @@ export interface ThemeConfig {
   margin: number;
   translationSpacing: number;
   smoothTransitions?: boolean;
+  lineHeight?: number;
 }
 
 export interface SlideState {
@@ -49,6 +50,8 @@ export interface SlideState {
   contentType?: 'bible' | 'song';
   isBlackout: boolean;
   theme: ThemeConfig;
+  playlist?: Verse[];
+  slideIndex?: number | null;
 }
 
 export interface ItemState {
@@ -92,7 +95,8 @@ const defaultTheme: ThemeConfig = {
   fontWeight: 800,
   padding: 0,
   margin: 0,
-  translationSpacing: 0
+  translationSpacing: 0,
+  lineHeight: 1.2
 };
 
 const getSavedTheme = (): ThemeConfig => {
@@ -210,7 +214,7 @@ export const useStore = create<StoreState>((set) => ({
     const nextIndex = activeItem.slideIndex + 1;
     if (nextIndex < activeItem.verses.length) {
       const v = activeItem.verses[nextIndex];
-      let title = undefined;
+      let title = activeItem.title;
       
       if (isBible) {
         const englishBook = v.book_name;
@@ -246,7 +250,7 @@ export const useStore = create<StoreState>((set) => ({
     const prevIndex = activeItem.slideIndex - 1;
     if (prevIndex >= 0) {
       const v = activeItem.verses[prevIndex];
-      let title = undefined;
+      let title = activeItem.title;
       
       if (isBible) {
         const englishBook = v.book_name;

@@ -1,6 +1,10 @@
 import xml.etree.ElementTree as ET
 import sys
 import os
+import re
+
+# Pre-compile regex to strip C0 (except tab/newline/carriage return), C1, ZWJ, and ZWNJ
+CONTROL_CHARS = re.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f\u200c\u200d]')
 
 BOOK_NAMES = [
     "Genesis", "Exodus", "Leviticus", "Numbers", "Deuteronomy", "Joshua", "Judges", "Ruth",
@@ -45,12 +49,12 @@ def convert_to_zefania(input_path, output_path):
 
     book_elements = root.findall('.//book')
     if not book_elements:
-        # Fallback if case is different
-        book_elements = root.findall('.//Book') + root.findall('.//b')
+        # Fallback if case is different or if it's already a Zefania file
+        book_elements = root.findall('.//Book') + root.findall('.//b') + root.findall('.//BIBLEBOOK')
 
     for book in book_elements:
         # Get book number (1-indexed in the new schema)
-        bnumber_str = book.get("number", book.get("id", book.get("n", "1")))
+        bnumber_str = book.get("number", book.get("id", book.get("n", book.get("bnumber", "1"))))
         try:
             b_num_int = int(bnumber_str)
             bname = BOOK_NAMES[b_num_int - 1] if 1 <= b_num_int <= len(BOOK_NAMES) else f"Book_{bnumber_str}"
@@ -64,24 +68,25 @@ def convert_to_zefania(input_path, output_path):
 
         chapter_elements = book.findall('./chapter')
         if not chapter_elements:
-            chapter_elements = book.findall('./Chapter') + book.findall('./c')
+            chapter_elements = book.findall('./Chapter') + book.findall('./c') + book.findall('./CHAPTER')
 
         for chapter in chapter_elements:
-            cnumber = chapter.get("number", chapter.get("id", chapter.get("n", "1")))
+            cnumber = chapter.get("number", chapter.get("id", chapter.get("n", chapter.get("cnumber", "1"))))
             z_chapter = ET.SubElement(z_book, "CHAPTER", {
                 "cnumber": str(cnumber)
             })
 
             verse_elements = chapter.findall('./verse')
             if not verse_elements:
-                verse_elements = chapter.findall('./Verse') + chapter.findall('./v')
+                verse_elements = chapter.findall('./Verse') + chapter.findall('./v') + chapter.findall('./VERS')
 
             for verse in verse_elements:
-                vnumber = verse.get("number", verse.get("id", verse.get("n", "1")))
+                vnumber = verse.get("number", verse.get("id", verse.get("n", verse.get("vnumber", "1"))))
                 
                 # Extract and strip text
                 v_text = verse.text if verse.text else ""
-                v_text = v_text.strip()
+                v_text = CONTROL_CHARS.sub('', v_text).strip()
+                
                 if v_text.startswith('"') and v_text.endswith('"') and len(v_text) >= 2:
                     v_text = v_text[1:-1].strip()
 

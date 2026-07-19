@@ -1,4 +1,4 @@
-import { Monitor, MonitorOff, MonitorPlay, FolderOpen, ChevronDown, ChevronUp } from 'lucide-react';
+import { Monitor, MonitorOff, MonitorPlay, FolderOpen, ChevronDown, ChevronUp, AlignLeft, AlignCenter, AlignRight, AlignJustify } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useStore } from '../../store/useStore';
 import { open } from '@tauri-apps/plugin-dialog';
@@ -91,11 +91,11 @@ export default function RightPane() {
       </div>
 
       <div className="p-4 border-b border-border bg-black/5">
-        <div 
+        <div
           ref={previewWrapperRef}
           className="relative w-full aspect-video bg-black rounded-md overflow-hidden ring-1 ring-white/10 shadow-2xl"
         >
-          <div 
+          <div
             className="absolute top-0 left-0 w-[1920px] h-[1080px] origin-top-left"
             style={{ transform: `scale(${previewScale})` }}
           >
@@ -172,297 +172,315 @@ export default function RightPane() {
 
         {/* Theme Settings */}
         <div>
-          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Theme Settings</h3>
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center justify-between">
+            Theme Settings
+          </h3>
           <div className="space-y-4">
 
-            {/* Background Control */}
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-muted-foreground">Background Type</label>
-              <select
-                className="w-full bg-background border border-border rounded p-2 text-sm text-foreground focus:outline-none focus:border-blue-500"
-                value={theme.bgType}
-                onChange={(e) => setTheme({ bgType: e.target.value as 'color' | 'image' | 'video', bgValue: '' })}
-              >
-                <option value="color">Solid Color</option>
-                <option value="image">Image Background</option>
-                <option value="video">Video Background</option>
-              </select>
+            {/* Background Settings Card */}
+            <div className="bg-background/50 border border-border/50 rounded-lg p-3 space-y-3">
+              <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Background</h4>
+              
+              <div className="space-y-2">
+                <select
+                  className="w-full h-9 bg-background border border-border rounded px-2 text-sm text-foreground focus:outline-none focus:border-blue-500"
+                  value={theme.bgType}
+                  onChange={(e) => setTheme({ bgType: e.target.value as 'color' | 'image' | 'video', bgValue: '' })}
+                >
+                  <option value="color">Solid Color</option>
+                  <option value="image">Image Background</option>
+                  <option value="video">Video Background</option>
+                </select>
 
-              <div className="flex gap-2">
-                <input
-                  type={theme.bgType === 'color' ? 'color' : 'text'}
-                  placeholder={theme.bgType === 'color' ? '' : 'URL or local file path'}
-                  value={theme.bgValue}
-                  onChange={(e) => setTheme({ bgValue: e.target.value })}
-                  className="flex-1 bg-background border border-border rounded p-2 text-sm text-foreground focus:outline-none focus:border-blue-500 h-10"
-                />
-                {theme.bgType !== 'color' && (
-                  <button
+                {theme.bgType === 'color' ? (
+                  <div className="flex gap-2">
+                    <input
+                      type="color"
+                      value={theme.bgValue}
+                      onChange={(e) => setTheme({ bgValue: e.target.value })}
+                      className="flex-1 bg-background border border-border rounded px-2 text-sm text-foreground focus:outline-none focus:border-blue-500 h-9"
+                    />
+                  </div>
+                ) : (
+                  <div
                     onClick={handleBrowseMedia}
-                    className="p-2 border border-border bg-background hover:bg-secondary rounded text-muted-foreground hover:text-foreground transition-colors h-10 w-10 flex items-center justify-center"
-                    title="Browse local file"
+                    className="relative w-full h-24 bg-background border-2 border-dashed border-border hover:border-blue-500 rounded-lg overflow-hidden cursor-pointer flex flex-col items-center justify-center group transition-colors"
                   >
-                    <FolderOpen size={16} />
-                  </button>
+                    {theme.bgValue ? (
+                      <>
+                        {theme.bgType === 'image' ? (
+                          <img src={theme.bgValue} alt="Background" className="absolute inset-0 w-full h-full object-cover" />
+                        ) : (
+                          <video src={theme.bgValue} className="absolute inset-0 w-full h-full object-cover" muted loop />
+                        )}
+                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-opacity gap-1 backdrop-blur-sm z-10">
+                          <FolderOpen size={16} className="text-white" />
+                          <span className="text-[10px] font-semibold text-white uppercase tracking-wider">Change {theme.bgType}</span>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-muted-foreground flex flex-col items-center gap-1 group-hover:text-blue-500 transition-colors z-10">
+                        <FolderOpen size={20} />
+                        <span className="text-[10px] font-medium uppercase tracking-wider">Browse {theme.bgType}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {theme.bgType !== 'color' && (
+                  <div className="grid grid-cols-2 gap-3 pt-2">
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between items-center">
+                        <label className="text-[10px] font-medium text-muted-foreground">Dimming</label>
+                        <div className="flex items-center text-[10px] text-muted-foreground bg-background border border-border/50 rounded px-1">
+                          <input
+                            type="number" min="0" max="100"
+                            value={theme.bgDim ?? 40}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value);
+                              if (!isNaN(val)) setTheme({ bgDim: val });
+                            }}
+                            className="hide-arrows w-7 bg-transparent text-right focus:outline-none focus:text-foreground p-0 border-none"
+                          />
+                          <span>%</span>
+                        </div>
+                      </div>
+                      <input
+                        type="range" min="0" max="100" step="5"
+                        value={theme.bgDim ?? 40}
+                        onChange={(e) => setTheme({ bgDim: parseInt(e.target.value) })}
+                        className="w-full accent-blue-500 cursor-pointer"
+                      />
+                    </div>
+                    
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between items-center">
+                        <label className="text-[10px] font-medium text-muted-foreground">Blur</label>
+                        <div className="flex items-center text-[10px] text-muted-foreground bg-background border border-border/50 rounded px-1">
+                          <input
+                            type="number" min="0" max="100"
+                            value={theme.bgBlur ?? 2}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value);
+                              if (!isNaN(val)) setTheme({ bgBlur: val });
+                            }}
+                            className="hide-arrows w-7 bg-transparent text-right focus:outline-none focus:text-foreground p-0 border-none"
+                          />
+                          <span>px</span>
+                        </div>
+                      </div>
+                      <input
+                        type="range" min="0" max="20" step="1"
+                        value={theme.bgBlur ?? 2}
+                        onChange={(e) => setTheme({ bgBlur: parseInt(e.target.value) })}
+                        className="w-full accent-blue-500 cursor-pointer"
+                      />
+                    </div>
+                  </div>
                 )}
               </div>
-
-              {theme.bgType !== 'color' && (
-                <div className="grid grid-cols-2 gap-2 mt-2">
-                  <div className="space-y-1">
-                    <div className="flex justify-between items-center">
-                      <label className="text-[10px] font-medium text-muted-foreground uppercase">Dimming</label>
-                      <div className="flex items-center justify-end">
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={theme.bgDim ?? 40}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value);
-                            if (!isNaN(val)) setTheme({ bgDim: val });
-                          }}
-                          className="hide-arrows w-8 bg-transparent text-right text-[10px] text-muted-foreground focus:outline-none focus:text-foreground focus:bg-secondary rounded p-0 m-0 border-none"
-                        />
-                        <span className="text-[10px] text-muted-foreground ml-0.5">%</span>
-                      </div>
-                    </div>
-                    <input
-                      type="range" min="0" max="100" step="5"
-                      value={theme.bgDim ?? 40}
-                      onChange={(e) => setTheme({ bgDim: parseInt(e.target.value) })}
-                      className="w-full accent-blue-500 h-2"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex justify-between items-center">
-                      <label className="text-[10px] font-medium text-muted-foreground uppercase">Blur</label>
-                      <div className="flex items-center justify-end">
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={theme.bgBlur ?? 2}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value);
-                            if (!isNaN(val)) setTheme({ bgBlur: val });
-                          }}
-                          className="hide-arrows w-8 bg-transparent text-right text-[10px] text-muted-foreground focus:outline-none focus:text-foreground focus:bg-secondary rounded p-0 m-0 border-none"
-                        />
-                        <span className="text-[10px] text-muted-foreground ml-0.5">px</span>
-                      </div>
-                    </div>
-                    <input
-                      type="range" min="0" max="20" step="1"
-                      value={theme.bgBlur ?? 2}
-                      onChange={(e) => setTheme({ bgBlur: parseInt(e.target.value) })}
-                      className="w-full accent-blue-500 h-2"
-                    />
-                  </div>
-                </div>
-              )}
             </div>
 
-            {/* Typography Control */}
-            <div className="flex gap-3">
-              <div className="flex-1 space-y-2">
-                <label className="text-xs font-medium text-muted-foreground">Primary Font</label>
-                <select
-                  className="w-full h-9 bg-background border border-border rounded px-2 text-sm text-foreground focus:outline-none focus:border-blue-500"
-                  value={theme.mainFontFamily || 'serif'}
-                  onChange={(e) => setTheme({ mainFontFamily: e.target.value })}
-                >
-                  <option value="serif">Serif (Default)</option>
-                  <option value="sans-serif">Sans Serif</option>
-                  <option value="ui-sans-serif, system-ui, sans-serif">System</option>
-                  <option value="monospace">Monospace</option>
-                  <option value="'Inter', sans-serif">Inter</option>
-                  <option value="'Noto Sans', sans-serif">Noto Sans</option>
-                  <option value="'Baloo 2', sans-serif">Baloo</option>
-                  <option value="'Georgia', serif">Georgia</option>
-                </select>
-              </div>
-              <div className="flex-1 space-y-2">
-                <label className="text-xs font-medium text-muted-foreground">Secondary Font</label>
-                <select
-                  className="w-full h-9 bg-background border border-border rounded px-2 text-sm text-foreground focus:outline-none focus:border-blue-500"
-                  value={theme.subFontFamily || 'serif'}
-                  onChange={(e) => setTheme({ subFontFamily: e.target.value })}
-                >
-                  <option value="serif">Serif (Default)</option>
-                  <option value="sans-serif">Sans Serif</option>
-                  <option value="ui-sans-serif, system-ui, sans-serif">System</option>
-                  <option value="monospace">Monospace</option>
-                  <option value="'Inter', sans-serif">Inter</option>
-                  <option value="'Noto Sans', sans-serif">Noto Sans</option>
-                  <option value="'Baloo 2', sans-serif">Baloo</option>
-                  <option value="'Georgia', serif">Georgia</option>
-                </select>
-              </div>
-              <div className="w-16 space-y-2">
-                <label className="text-xs font-medium text-muted-foreground">Color</label>
-                <div className="relative w-full h-9 rounded border border-border overflow-hidden cursor-pointer ring-1 ring-black/5 hover:ring-black/10 transition-shadow">
-                  <input
-                    type="color"
-                    value={theme.fontColor || '#ffffff'}
-                    onChange={(e) => setTheme({ fontColor: e.target.value })}
-                    className="absolute -top-4 -left-4 w-32 h-32 cursor-pointer"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-1 mt-3">
-              <div className="flex justify-between items-center">
-                <label className="text-[10px] font-medium text-muted-foreground uppercase">Font Weight</label>
-                <div className="flex items-center justify-end">
-                  <input
-                    type="number"
-                    min="100"
-                    max="900"
-                    step="100"
-                    value={theme.fontWeight ?? 800}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value);
-                      if (!isNaN(val)) setTheme({ fontWeight: val });
-                    }}
-                    className="w-10 bg-transparent text-right text-[10px] text-muted-foreground focus:outline-none focus:text-foreground focus:bg-secondary rounded p-0 m-0 border-none"
-                  />
-                </div>
-              </div>
-              <input
-                type="range" min="100" max="900" step="100"
-                value={theme.fontWeight ?? 800}
-                onChange={(e) => setTheme({ fontWeight: parseInt(e.target.value) })}
-                className="w-full accent-blue-500 h-2"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-muted-foreground">Text Alignment</label>
-              <div className="flex bg-background border border-border rounded overflow-hidden h-9">
-                {['left', 'center', 'right', 'justify'].map(align => (
-                  <button
-                    key={align}
-                    onClick={() => setTheme({ textAlign: align as any })}
-                    className={clsx(
-                      "flex-1 p-1 text-xs font-medium capitalize transition-colors",
-                      theme.textAlign === align
-                        ? "bg-blue-500 text-white"
-                        : "hover:bg-secondary text-muted-foreground"
-                    )}
-                  >
-                    {align}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-muted-foreground">Font Sizes (Max px)</label>
+            {/* Typography Settings Card */}
+            <div className="bg-background/50 border border-border/50 rounded-lg p-3 space-y-3">
+              <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Typography</h4>
+              
               <div className="grid grid-cols-2 gap-2">
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] text-muted-foreground text-center">Main</label>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-medium text-muted-foreground">Primary Font</label>
+                  <select
+                    className="w-full h-8 bg-background border border-border rounded px-2 text-xs text-foreground focus:outline-none focus:border-blue-500"
+                    value={theme.mainFontFamily || 'serif'}
+                    onChange={(e) => setTheme({ mainFontFamily: e.target.value })}
+                  >
+                    <option value="serif">Serif (Default)</option>
+                    <option value="sans-serif">Sans Serif</option>
+                    <option value="ui-sans-serif, system-ui, sans-serif">System</option>
+                    <option value="monospace">Monospace</option>
+                    <option value="'Inter', sans-serif">Inter</option>
+                    <option value="'Noto Sans', sans-serif">Noto Sans</option>
+                    <option value="'Baloo 2', sans-serif">Baloo</option>
+                    <option value="'Georgia', serif">Georgia</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-medium text-muted-foreground">Secondary Font</label>
+                  <select
+                    className="w-full h-8 bg-background border border-border rounded px-2 text-xs text-foreground focus:outline-none focus:border-blue-500"
+                    value={theme.subFontFamily || 'serif'}
+                    onChange={(e) => setTheme({ subFontFamily: e.target.value })}
+                  >
+                    <option value="serif">Serif (Default)</option>
+                    <option value="sans-serif">Sans Serif</option>
+                    <option value="ui-sans-serif, system-ui, sans-serif">System</option>
+                    <option value="monospace">Monospace</option>
+                    <option value="'Inter', sans-serif">Inter</option>
+                    <option value="'Noto Sans', sans-serif">Noto Sans</option>
+                    <option value="'Baloo 2', sans-serif">Baloo</option>
+                    <option value="'Georgia', serif">Georgia</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div className="space-y-1.5 col-span-2">
+                  <div className="flex justify-between items-center h-4">
+                    <label className="text-[10px] font-medium text-muted-foreground">Weight</label>
+                    <span className="text-[10px] text-foreground bg-background border border-border/50 rounded px-1">{theme.fontWeight ?? 800}</span>
+                  </div>
                   <input
-                    type="number"
-                    min="10"
-                    max="200"
-                    value={theme.mainFontSize ?? 90}
-                    onChange={(e) => setTheme({ mainFontSize: parseInt(e.target.value) || 90 })}
-                    className="w-full bg-background border border-border rounded p-1.5 text-center text-sm focus:outline-none focus:border-blue-500"
+                    type="range" min="100" max="900" step="100"
+                    value={theme.fontWeight ?? 800}
+                    onChange={(e) => setTheme({ fontWeight: parseInt(e.target.value) })}
+                    className="w-full accent-blue-500 cursor-pointer mt-1"
                   />
                 </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] text-muted-foreground text-center">Sub</label>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-medium text-muted-foreground block h-4">Color</label>
+                  <div className="relative w-full h-8 rounded border border-border overflow-hidden cursor-pointer">
+                    <input
+                      type="color"
+                      value={theme.fontColor || '#ffffff'}
+                      onChange={(e) => setTheme({ fontColor: e.target.value })}
+                      className="absolute -top-2 -left-2 w-16 h-16 cursor-pointer"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <div className="flex items-center justify-between bg-background border border-border rounded px-2 py-1.5">
+                  <label className="text-[10px] text-muted-foreground whitespace-nowrap mr-2">Main Size</label>
                   <input
-                    type="number"
-                    min="10"
-                    max="200"
-                    value={theme.subFontSize ?? 60}
+                    type="number" min="10" max="200"
+                    value={theme.mainFontSize ?? 70}
+                    onChange={(e) => setTheme({ mainFontSize: parseInt(e.target.value) || 90 })}
+                    className="w-12 bg-transparent text-right text-xs focus:outline-none"
+                  />
+                </div>
+                <div className="flex items-center justify-between bg-background border border-border rounded px-2 py-1.5">
+                  <label className="text-[10px] text-muted-foreground whitespace-nowrap mr-2">Sub Size</label>
+                  <input
+                    type="number" min="10" max="200"
+                    value={theme.subFontSize ?? 70}
                     onChange={(e) => setTheme({ subFontSize: parseInt(e.target.value) || 60 })}
-                    className="w-full bg-background border border-border rounded p-1.5 text-center text-sm focus:outline-none focus:border-blue-500"
+                    className="w-12 bg-transparent text-right text-xs focus:outline-none"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-muted-foreground">Layout Spacing (%)</label>
-              <div className="grid grid-cols-3 gap-2">
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] text-muted-foreground text-center">Padding</label>
+            {/* Layout Card */}
+            <div className="bg-background/50 border border-border/50 rounded-lg p-3 space-y-3">
+              <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Layout</h4>
+              
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-medium text-muted-foreground">Alignment</label>
+                <div className="flex bg-background border border-border rounded overflow-hidden h-8">
+                  {[
+                    { val: 'left', icon: <AlignLeft size={14} /> },
+                    { val: 'center', icon: <AlignCenter size={14} /> },
+                    { val: 'right', icon: <AlignRight size={14} /> },
+                    { val: 'justify', icon: <AlignJustify size={14} /> },
+                  ].map(({ val, icon }) => (
+                    <button
+                      key={val}
+                      onClick={() => setTheme({ textAlign: val as any })}
+                      className={clsx(
+                        "flex-1 flex items-center justify-center transition-colors",
+                        theme.textAlign === val
+                          ? "bg-blue-500 text-white"
+                          : "hover:bg-secondary text-muted-foreground"
+                      )}
+                      title={val}
+                    >
+                      {icon}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div className="flex items-center justify-between bg-background border border-border rounded px-2 py-1.5">
+                  <label className="text-[10px] text-muted-foreground whitespace-nowrap mr-2">Padding</label>
                   <input
-                    type="number"
-                    min="0"
-                    max="20"
+                    type="number" min="0" max="50"
                     value={theme.padding ?? 0}
                     onChange={(e) => setTheme({ padding: parseInt(e.target.value) || 0 })}
-                    className="w-full bg-background border border-border rounded p-1.5 text-center text-sm focus:outline-none focus:border-blue-500"
+                    className="w-12 bg-transparent text-right text-xs focus:outline-none"
                   />
                 </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] text-muted-foreground text-center">Margin Top</label>
+                <div className="flex items-center justify-between bg-background border border-border rounded px-2 py-1.5">
+                  <label className="text-[10px] text-muted-foreground whitespace-nowrap mr-2">Top Margin</label>
                   <input
-                    type="number"
-                    min="-100"
-                    max="100"
+                    type="number" min="-100" max="100"
                     value={theme.margin ?? 0}
                     onChange={(e) => setTheme({ margin: parseInt(e.target.value) || 0 })}
-                    className="w-full bg-background border border-border rounded p-1.5 text-center text-sm focus:outline-none focus:border-blue-500"
+                    className="w-12 bg-transparent text-right text-xs focus:outline-none"
                   />
                 </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] text-muted-foreground text-center">Text Gap</label>
+                <div className="flex items-center justify-between bg-background border border-border rounded px-2 py-1.5">
+                  <label className="text-[10px] text-muted-foreground whitespace-nowrap mr-2">Text Gap</label>
                   <input
-                    type="number"
-                    min="-100"
-                    max="100"
+                    type="number" min="-100" max="100"
                     value={theme.translationSpacing ?? 0}
                     onChange={(e) => setTheme({ translationSpacing: parseInt(e.target.value) || 0 })}
-                    className="w-full bg-background border border-border rounded p-1.5 text-center text-sm focus:outline-none focus:border-blue-500"
+                    className="w-12 bg-transparent text-right text-xs focus:outline-none"
+                  />
+                </div>
+                <div className="flex items-center justify-between bg-background border border-border rounded px-2 py-1.5">
+                  <label className="text-[10px] text-muted-foreground whitespace-nowrap mr-2">Line Height</label>
+                  <input
+                    type="number" step="0.1" min="0.5" max="3.0"
+                    value={theme.lineHeight ?? 1.4}
+                    onChange={(e) => setTheme({ lineHeight: parseFloat(e.target.value) || 1.2 })}
+                    className="w-12 bg-transparent text-right text-xs focus:outline-none"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-muted-foreground">Text Shadow / Outline</label>
-              <select
-                className="w-full bg-background border border-border rounded p-2 text-sm text-foreground focus:outline-none focus:border-blue-500"
-                value={theme.textShadow}
-                onChange={(e) => setTheme({ textShadow: e.target.value })}
-              >
-                <option value="none">None</option>
-                <option value="0 4px 12px rgba(0,0,0,0.8)">Soft Drop Shadow</option>
-                <option value="2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000">Hard Outline (Black)</option>
-                <option value="2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 0 10px 25px rgba(0,0,0,1)">Outline + Blur Shadow</option>
-              </select>
-            </div>
-            
-            <div className="flex items-center justify-between p-2 rounded border border-border bg-background/50">
-              <label className="text-sm font-medium text-foreground cursor-pointer select-none">
-                Smooth Transitions
+            {/* Effects Card */}
+            <div className="bg-background/50 border border-border/50 rounded-lg p-3 space-y-3">
+              <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Effects</h4>
+              
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-medium text-muted-foreground">Shadow / Outline</label>
+                <select
+                  className="w-full h-8 bg-background border border-border rounded px-2 text-xs text-foreground focus:outline-none focus:border-blue-500"
+                  value={theme.textShadow}
+                  onChange={(e) => setTheme({ textShadow: e.target.value })}
+                >
+                  <option value="none">None</option>
+                  <option value="0 4px 12px rgba(0,0,0,0.8)">Soft Drop Shadow</option>
+                  <option value="2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000">Hard Outline</option>
+                  <option value="2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 0 10px 25px rgba(0,0,0,1)">Outline + Shadow</option>
+                </select>
+              </div>
+
+              <label className="flex items-center justify-between p-2 rounded border border-border bg-background cursor-pointer group hover:border-border/80 transition-colors">
+                <span className="text-xs font-medium text-foreground select-none">Smooth Transitions</span>
+                <input
+                  type="checkbox"
+                  checked={theme.smoothTransitions ?? false}
+                  onChange={(e) => setTheme({ smoothTransitions: e.target.checked })}
+                  className="w-3.5 h-3.5 rounded border-border text-blue-600 focus:ring-blue-500 cursor-pointer"
+                />
               </label>
-              <input
-                type="checkbox"
-                checked={theme.smoothTransitions ?? false}
-                onChange={(e) => setTheme({ smoothTransitions: e.target.checked })}
-                className="w-4 h-4 rounded border-border text-blue-600 focus:ring-blue-500 cursor-pointer"
-              />
             </div>
-        </div>
+          </div>
         </div>
 
         {/* Remote Connect (Collapsible) */}
         <div className="pt-2">
-          <button 
+          <button
             onClick={() => setIsQrOpen(!isQrOpen)}
             className="w-full flex items-center justify-between text-left group"
           >
             <h3 className="text-xs font-semibold text-muted-foreground group-hover:text-foreground transition-colors uppercase tracking-wider">Remote Connect</h3>
             {isQrOpen ? <ChevronUp size={16} className="text-muted-foreground" /> : <ChevronDown size={16} className="text-muted-foreground" />}
           </button>
-          
+
           {isQrOpen && (
             <div className="mt-3">
               <RemoteConnectCard />

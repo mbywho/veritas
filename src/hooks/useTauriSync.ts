@@ -10,14 +10,19 @@ export function useTauriSync(isProjector: boolean = false) {
   const { setStateFromEvent } = useStore();
 
   const stateToSync = useStore(
-    useShallow(state => ({
-      title: state.title,
-      text: state.text,
-      subtext: state.subtext,
-      contentType: state.contentType,
-      isBlackout: state.isBlackout,
-      theme: state.theme,
-    }))
+    useShallow(state => {
+      const activeItem = state.activeTab === 'bibles' ? state.bibleState : state.songState;
+      return {
+        title: state.title,
+        text: state.text,
+        subtext: state.subtext,
+        contentType: state.contentType,
+        isBlackout: state.isBlackout,
+        theme: state.theme,
+        playlist: activeItem.verses,
+        slideIndex: activeItem.slideIndex,
+      };
+    })
   );
 
   // Projector: Listen for state changes
@@ -47,6 +52,8 @@ export function useTauriSync(isProjector: boolean = false) {
       contentType: stateToSync.contentType,
       isBlackout: stateToSync.isBlackout,
       theme: stateToSync.theme,
+      playlist: stateToSync.playlist,
+      slideIndex: stateToSync.slideIndex,
     };
 
     // Listen for new projectors coming online
@@ -71,6 +78,8 @@ export function useTauriSync(isProjector: boolean = false) {
       contentType: stateToSync.contentType,
       isBlackout: stateToSync.isBlackout,
       theme: stateToSync.theme,
+      playlist: stateToSync.playlist,
+      slideIndex: stateToSync.slideIndex,
     };
 
     // Emit to all Tauri windows (Projector)
@@ -86,6 +95,8 @@ export function useTauriSync(isProjector: boolean = false) {
     stateToSync.contentType,
     stateToSync.isBlackout,
     stateToSync.theme,
+    stateToSync.playlist,
+    stateToSync.slideIndex,
     isProjector
   ]);
 }
