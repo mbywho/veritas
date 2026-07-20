@@ -83,6 +83,53 @@ export default function LeftPane() {
   const setSlideText = useStore((state) => state.setSlideText);
   const history = useStore(state => state.history);
 
+  const bibleState = useStore((state) => state.bibleState);
+
+  const booksContainerRef = useRef<HTMLDivElement>(null);
+  const chaptersContainerRef = useRef<HTMLDivElement>(null);
+  const versesContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (bibleState.verses.length > 0 && bibleState.slideIndex !== null) {
+      const activeVerse = bibleState.verses[bibleState.slideIndex];
+      if (activeVerse) {
+        const book = books.find(b => b.name === activeVerse.book_name);
+        if (book) {
+          if (selectedBookNumber !== book.number) setSelectedBookNumber(book.number);
+          if (selectedChapter !== activeVerse.chapter) setSelectedChapter(activeVerse.chapter);
+          if (selectedVerse !== activeVerse.verse_num) setSelectedVerse(activeVerse.verse_num);
+        }
+      }
+    }
+  }, [bibleState.verses, bibleState.slideIndex, books]);
+
+  useEffect(() => {
+    if (activeTab === 'bibles') {
+      const scrollIntoView = (containerRef: React.RefObject<HTMLDivElement | null>, selector: string) => {
+        if (containerRef.current) {
+          const selectedEl = containerRef.current.querySelector(selector) as HTMLElement;
+          if (selectedEl) {
+            const container = containerRef.current;
+            const containerRect = container.getBoundingClientRect();
+            const elRect = selectedEl.getBoundingClientRect();
+            
+            if (elRect.top < containerRect.top || elRect.bottom > containerRect.bottom) {
+              selectedEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }
+        }
+      };
+      
+      const timer = setTimeout(() => {
+        scrollIntoView(booksContainerRef, '.selected-book');
+        scrollIntoView(chaptersContainerRef, '.selected-chapter');
+        scrollIntoView(versesContainerRef, '.selected-verse');
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedBookNumber, selectedChapter, selectedVerse, activeTab, verseCount]);
+
+
   const [historyHeight, setHistoryHeight] = useState<number>(() => {
     const saved = localStorage.getItem('veritas_historyHeight');
     return saved ? parseInt(saved) : 256;
@@ -1023,7 +1070,7 @@ export default function LeftPane() {
             style={{ height: bibleNavHeight }}
           >
             {/* Books */}
-            <div className="flex-[3] border-r border-border overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent py-1">
+            <div ref={booksContainerRef} className="flex-[3] border-r border-border overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent py-1">
               {books.map(b => (
                 <button
                   key={b.id}
@@ -1031,7 +1078,7 @@ export default function LeftPane() {
                   className={clsx(
                     "w-full text-left px-3 py-1.5 text-[11px] transition-colors truncate",
                     selectedBookNumber === b.number
-                      ? "bg-blue-500/10 text-blue-400 font-bold border-r-2 border-blue-500"
+                      ? "selected-book bg-blue-500/10 text-blue-400 font-bold border-r-2 border-blue-500"
                       : "text-muted-foreground hover:bg-secondary hover:text-foreground"
                   )}
                 >
@@ -1040,7 +1087,7 @@ export default function LeftPane() {
               ))}
             </div>
             {/* Chapters */}
-            <div className="flex-[2] border-r border-border overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent py-1">
+            <div ref={chaptersContainerRef} className="flex-[2] border-r border-border overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent py-1">
               {Array.from({ length: chapterCount }, (_, i) => i + 1).map(c => (
                 <button
                   key={c}
@@ -1048,7 +1095,7 @@ export default function LeftPane() {
                   className={clsx(
                     "w-full text-left px-3 py-1.5 text-[11px] transition-colors",
                     selectedChapter === c
-                      ? "bg-blue-500/10 text-blue-400 font-bold border-r-2 border-blue-500"
+                      ? "selected-chapter bg-blue-500/10 text-blue-400 font-bold border-r-2 border-blue-500"
                       : "text-muted-foreground hover:bg-secondary hover:text-foreground"
                   )}
                 >
@@ -1058,7 +1105,7 @@ export default function LeftPane() {
               {chapterCount === 0 && <div className="p-3 text-[11px] text-muted-foreground/50 text-center">Chapter</div>}
             </div>
             {/* Verses */}
-            <div className="flex-[2] overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent py-1">
+            <div ref={versesContainerRef} className="flex-[2] overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent py-1">
               {Array.from({ length: verseCount }, (_, i) => i + 1).map(v => (
                 <button
                   key={v}
@@ -1066,7 +1113,7 @@ export default function LeftPane() {
                   className={clsx(
                     "w-full text-left px-3 py-1.5 text-[11px] transition-colors",
                     selectedVerse === v
-                      ? "bg-blue-500/10 text-blue-400 font-bold border-r-2 border-blue-500"
+                      ? "selected-verse bg-blue-500/10 text-blue-400 font-bold border-r-2 border-blue-500"
                       : "text-muted-foreground hover:bg-secondary hover:text-foreground"
                   )}
                 >
