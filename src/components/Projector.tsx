@@ -194,7 +194,7 @@ export default function Projector({ isPreview = false }: { isPreview?: boolean }
                   transform: 'scale(1)'
                 }}
               >
-                {text || "Select a verse or song to display"}
+                {text}
               </p>
             </div>
           </div>
