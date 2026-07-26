@@ -497,23 +497,15 @@ fn import_custom_song(
 ) -> Result<String, String> {
     let conn = state.db.lock().unwrap_or_else(|p| p.into_inner());
 
-    let safe_title = sanitize_fts_query(&title);
-    if !safe_title.trim().is_empty() {
-        let mut check_stmt = conn
-            .prepare("SELECT rowid FROM Songs_FTS WHERE title MATCH ?1 LIMIT 1")
-            .map_err(|e| e.to_string())?;
-        let duplicate = check_stmt
-            .exists(rusqlite::params![safe_title])
-            .unwrap_or(false);
-        if duplicate {
-            return Err("Duplicate song found".to_string());
-        }
+    let trimmed_title = title.trim();
+    if trimmed_title.is_empty() {
+        return Err("Song title cannot be empty".to_string());
     }
 
-    // Start a transaction or just run sequentially
+    // Insert song directly without duplicate restrictions
     conn.execute(
         "INSERT INTO Songs (title, category) VALUES (?1, ?2)",
-        rusqlite::params![title, "Custom"],
+        rusqlite::params![trimmed_title, "Custom"],
     )
     .map_err(|e| e.to_string())?;
 
