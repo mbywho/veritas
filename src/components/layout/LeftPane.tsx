@@ -112,14 +112,14 @@ export default function LeftPane() {
             const container = containerRef.current;
             const containerRect = container.getBoundingClientRect();
             const elRect = selectedEl.getBoundingClientRect();
-            
+
             if (elRect.top < containerRect.top || elRect.bottom > containerRect.bottom) {
               selectedEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
           }
         }
       };
-      
+
       const timer = setTimeout(() => {
         scrollIntoView(booksContainerRef, '.selected-book');
         scrollIntoView(chaptersContainerRef, '.selected-chapter');
@@ -692,11 +692,73 @@ export default function LeftPane() {
     }
   };
 
+  // const handleSaveSong = async () => {
+  //   let compiledText = '';
+  //   if (isRawTextMode) {
+  //     compiledText = rawSongText.trim();
+  //     // Ensure it has bracketed labels if they just pasted plain paragraphs
+  //     if (compiledText && !compiledText.includes('[')) {
+  //       const blocks = compiledText.split(/\n\s*\n/);
+  //       compiledText = blocks.map((block, i) => {
+  //         let text = block.trim();
+  //         const firstLineMatch = text.match(/^([^\n]{1,30})\n/);
+  //         let hasLabel = false;
+  //         if (firstLineMatch) {
+  //           const potentialLabel = firstLineMatch[1].trim();
+  //           const isKnownLabel = ["Verse", "Chorus", "Bridge", "Pre-Chorus", "Intro", "Outro", "Tag"].some(k => potentialLabel.startsWith(k));
+  //           if (isKnownLabel) {
+  //             text = text.replace(/^[^\n]+\n/, '').trim();
+  //             text = `[${potentialLabel}]\n${text}`;
+  //             hasLabel = true;
+  //           }
+  //         }
+  //         if (!hasLabel) {
+  //           text = `[Verse ${i + 1}]\n${text}`;
+  //         }
+  //         return text;
+  //       }).join('\n\n');
+  //     }
+  //   } else {
+  //     compiledText = songSections
+  //       .filter(s => s.text.trim())
+  //       .map(s => `[${s.label}]\n${s.text.trim()}`)
+  //       .join('\n\n');
+  //   }
+
+  //   if (!songTitle.trim() || !compiledText.trim()) {
+  //     await message("Title and Lyrics are required.", { title: 'Required', kind: 'warning' });
+  //     return;
+  //   }
+
+  //   try {
+  //     setIsSavingSong(true);
+  //     if (editingSongId !== null) {
+  //       await invoke('update_song', { songId: editingSongId, title: songTitle, text: compiledText });
+  //     } else {
+  //       await invoke('import_custom_song', { title: songTitle, text: compiledText });
+  //     }
+  //     setIsSavingSong(false);
+  //     setIsSongModalOpen(false);
+  //     setSongTitle('');
+  //     setSongSections([{ id: 'initial', label: 'Verse 1', text: '' }]);
+  //     setRawSongText('');
+  //     setIsRawTextMode(false);
+  //     setEditingSongId(null);
+  //     await message(editingSongId !== null ? "Song updated successfully!" : "Song imported successfully!", { title: 'Success', kind: 'info' });
+  //     setSearchQuery(songTitle);
+  //   } catch (err) {
+  //     console.error(err);
+  //     setIsSavingSong(false);
+  //     await message(editingSongId !== null ? "Failed to update song" : "Failed to import song", { title: 'Error', kind: 'error' });
+  //   }
+  // };
+
   const handleSaveSong = async () => {
+    console.log("[SAVE SONG] 1. Save button clicked");
     let compiledText = '';
     if (isRawTextMode) {
+      console.log("[SAVE SONG] 2a. Processing Raw Text Mode");
       compiledText = rawSongText.trim();
-      // Ensure it has bracketed labels if they just pasted plain paragraphs
       if (compiledText && !compiledText.includes('[')) {
         const blocks = compiledText.split(/\n\s*\n/);
         compiledText = blocks.map((block, i) => {
@@ -719,24 +781,33 @@ export default function LeftPane() {
         }).join('\n\n');
       }
     } else {
+      console.log("[SAVE SONG] 2b. Processing Blocks Mode");
       compiledText = songSections
         .filter(s => s.text.trim())
         .map(s => `[${s.label}]\n${s.text.trim()}`)
         .join('\n\n');
     }
 
+    console.log("[SAVE SONG] 3. Validating inputs...");
     if (!songTitle.trim() || !compiledText.trim()) {
+      console.log("[SAVE SONG] Validation failed: Empty fields");
       await message("Title and Lyrics are required.", { title: 'Required', kind: 'warning' });
       return;
     }
 
     try {
+      console.log(`[SAVE SONG] 4. Preparing Rust invoke. Editing ID: ${editingSongId}`);
       setIsSavingSong(true);
+
       if (editingSongId !== null) {
+        console.log("[SAVE SONG] 5. Calling 'update_song' on backend...");
         await invoke('update_song', { songId: editingSongId, title: songTitle, text: compiledText });
       } else {
+        console.log("[SAVE SONG] 5. Calling 'import_custom_song' on backend...");
         await invoke('import_custom_song', { title: songTitle, text: compiledText });
       }
+
+      console.log("[SAVE SONG] 6. Backend call returned successfully. Resetting UI state...");
       setIsSavingSong(false);
       setIsSongModalOpen(false);
       setSongTitle('');
@@ -744,16 +815,18 @@ export default function LeftPane() {
       setRawSongText('');
       setIsRawTextMode(false);
       setEditingSongId(null);
+
+      console.log("[SAVE SONG] 7. Triggering native success message...");
       await message(editingSongId !== null ? "Song updated successfully!" : "Song imported successfully!", { title: 'Success', kind: 'info' });
+
+      console.log("[SAVE SONG] 8. Setting search query and finishing up.");
       setSearchQuery(songTitle);
     } catch (err) {
-      console.error(err);
+      console.error("[SAVE SONG] ERROR caught in handleSaveSong:", err);
       setIsSavingSong(false);
       await message(editingSongId !== null ? "Failed to update song" : "Failed to import song", { title: 'Error', kind: 'error' });
     }
   };
-
-
 
   const handleDeleteSong = async (song: Song, e: React.MouseEvent) => {
     e.stopPropagation();
