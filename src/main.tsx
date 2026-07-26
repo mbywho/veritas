@@ -24,6 +24,7 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
         <Route path="/" element={<App />} />
         <Route path="/projector" element={<Projector />} />
         <Route path="/console" element={<Console />} />
+      </Routes>
     </BrowserRouter>
   </React.StrictMode>,
 );
