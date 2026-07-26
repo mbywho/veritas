@@ -8,6 +8,8 @@ import { confirm, message } from '@tauri-apps/plugin-dialog';
 import { emit } from '@tauri-apps/api/event';
 import { parseBibleReference } from '../../utils/bibleParser';
 import { useStore, Verse } from '../../store/useStore';
+import Console from "../Console";
+
 
 export default function CenterPane() {
   const activeTab = useStore((state) => state.activeTab);
@@ -218,7 +220,7 @@ export default function CenterPane() {
         const primaryBibleId = parseInt(localStorage.getItem('veritas_primaryBibleId') || '1') || 1;
         const savedSec = localStorage.getItem('veritas_secondaryBibleId');
         const secondaryBibleId = (savedSec && savedSec !== 'null') ? parseInt(savedSec) : null;
-        
+
         const parsedRef = parseBibleReference(payload.query);
         if (parsedRef) {
           invoke('get_chapter', {
@@ -235,12 +237,12 @@ export default function CenterPane() {
             if (results.length === 0) {
               results = [{ id: 0, book_id: 0, book_name: 'Debug', chapter: parsedRef.chapter, verse_num: parsedRef.verse || 0, text: `No verses found. BibleID: ${primaryBibleId}, Book: ${parsedRef.bookNumber}, Chap: ${parsedRef.chapter}, Sec: ${secondaryBibleId}, ChVsLen: ${chapterVerses.length}` }];
             }
-            invoke('broadcast_slide_state', { 
-              payload: JSON.stringify({ type: 'search_results_bible', results }) 
+            invoke('broadcast_slide_state', {
+              payload: JSON.stringify({ type: 'search_results_bible', results })
             }).catch(console.error);
           }).catch((err) => {
-            invoke('broadcast_slide_state', { 
-              payload: JSON.stringify({ type: 'search_results_bible', results: [{ id: 0, book_id: 0, book_name: 'Error', chapter: 0, verse_num: 0, text: err.toString() }] }) 
+            invoke('broadcast_slide_state', {
+              payload: JSON.stringify({ type: 'search_results_bible', results: [{ id: 0, book_id: 0, book_name: 'Error', chapter: 0, verse_num: 0, text: err.toString() }] })
             });
           });
         } else {
@@ -248,18 +250,18 @@ export default function CenterPane() {
             if (results.length === 0) {
               results = [{ id: 0, book_id: 0, book_name: 'Debug', chapter: 0, verse_num: 0, text: `FTS empty. BibleID: ${primaryBibleId}, Query: ${payload.query}` }];
             }
-            invoke('broadcast_slide_state', { 
-              payload: JSON.stringify({ type: 'search_results_bible', results }) 
+            invoke('broadcast_slide_state', {
+              payload: JSON.stringify({ type: 'search_results_bible', results })
             }).catch(console.error);
           }).catch((err) => {
-            invoke('broadcast_slide_state', { 
-              payload: JSON.stringify({ type: 'search_results_bible', results: [{ id: 0, book_id: 0, book_name: 'Error', chapter: 0, verse_num: 0, text: err.toString() }] }) 
+            invoke('broadcast_slide_state', {
+              payload: JSON.stringify({ type: 'search_results_bible', results: [{ id: 0, book_id: 0, book_name: 'Error', chapter: 0, verse_num: 0, text: err.toString() }] })
             });
           });
         }
       } else if (action === 'select_verse') {
         const verse = payload.verse;
-        
+
         const primaryBibleId = parseInt(localStorage.getItem('veritas_primaryBibleId') || '1') || 1;
         const savedSec = localStorage.getItem('veritas_secondaryBibleId');
         const secondaryBibleId = (savedSec && savedSec !== 'null') ? parseInt(savedSec) : null;
@@ -276,17 +278,17 @@ export default function CenterPane() {
           }).then((chapterVerses: any) => {
             state.setActiveTab('bibles');
             state.setActiveVerses(chapterVerses, 'bible', null);
-            
+
             const targetIndex = chapterVerses.findIndex((v: any) => v.verse_num == verse.verse_num);
             if (targetIndex === -1) {
-              invoke('broadcast_slide_state', { 
-                payload: JSON.stringify({ type: 'search_results_bible', results: [{ id: 0, book_id: 0, book_name: 'Error', chapter: verse.chapter, verse_num: verse.verse_num, text: `Verse not found in chapter. book_id=${verse.book_id}, computed_bookNumber=${bookNumber}, chapterVerses length=${chapterVerses.length}` }] }) 
+              invoke('broadcast_slide_state', {
+                payload: JSON.stringify({ type: 'search_results_bible', results: [{ id: 0, book_id: 0, book_name: 'Error', chapter: verse.chapter, verse_num: verse.verse_num, text: `Verse not found in chapter. book_id=${verse.book_id}, computed_bookNumber=${bookNumber}, chapterVerses length=${chapterVerses.length}` }] })
               });
             }
-            
+
             const finalIndex = Math.max(0, targetIndex);
             state.setActiveSlideIndex(finalIndex);
-            
+
             if (chapterVerses[finalIndex]) {
               const v = chapterVerses[finalIndex];
               const englishBook = v.book_name;
@@ -294,17 +296,17 @@ export default function CenterPane() {
               const title = `${hindiBook} (${englishBook}) ${v.chapter}:${v.verse_num}`;
               const primaryText = cleanText(v.text);
               const secondaryText = v.secondary_text ? cleanText(v.secondary_text) : undefined;
-              
+
               state.setSlideText(primaryText, secondaryText, title, 'bible');
             }
           }).catch((err) => {
-            invoke('broadcast_slide_state', { 
-              payload: JSON.stringify({ type: 'search_results_bible', results: [{ id: 0, book_id: 0, book_name: 'Error', chapter: 0, verse_num: 0, text: `get_chapter error: ${err.toString()}` }] }) 
+            invoke('broadcast_slide_state', {
+              payload: JSON.stringify({ type: 'search_results_bible', results: [{ id: 0, book_id: 0, book_name: 'Error', chapter: 0, verse_num: 0, text: `get_chapter error: ${err.toString()}` }] })
             });
           });
         }).catch((err) => {
-          invoke('broadcast_slide_state', { 
-            payload: JSON.stringify({ type: 'search_results_bible', results: [{ id: 0, book_id: 0, book_name: 'Error', chapter: 0, verse_num: 0, text: `get_books error: ${err.toString()}` }] }) 
+          invoke('broadcast_slide_state', {
+            payload: JSON.stringify({ type: 'search_results_bible', results: [{ id: 0, book_id: 0, book_name: 'Error', chapter: 0, verse_num: 0, text: `get_books error: ${err.toString()}` }] })
           });
         });
       }
@@ -573,6 +575,11 @@ export default function CenterPane() {
 
       {/* Background decoration */}
       <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 pointer-events-none" />
+
+      {/* Embedded Console Component at the bottom */}
+      <div className="h-48 border-t border-slate-700">
+        <Console />
+      </div>
     </div>
   );
 }
