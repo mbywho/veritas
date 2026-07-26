@@ -853,6 +853,9 @@ pub fn run() {
         .setup(|app| {
             // Capture Rust panics and send them to the frontend console window
             let app_handle_clone = app.handle().clone();
+
+            println!("Step 1");
+
             std::panic::set_hook(Box::new(move |panic_info| {
                 let message = if let Some(s) = panic_info.payload().downcast_ref::<&str>() {
                     s.to_string()
@@ -878,6 +881,8 @@ pub fn run() {
                 );
             }));
 
+            println!("Step 2");
+
             // Automatically open the DevTools console window for debugging
             #[cfg(debug_assertions)]
             {
@@ -886,8 +891,12 @@ pub fn run() {
                 }
             }
 
+            println!("Step 3");
+
             // Initialize database
             let conn = db::init_db(app.handle()).expect("Failed to initialize DB");
+
+            println!("Step 4");
 
             // Initialize broadcast channel for WebSockets
             let (tx, _rx) = tokio::sync::broadcast::channel(100);
