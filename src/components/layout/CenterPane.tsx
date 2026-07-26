@@ -77,7 +77,54 @@ export default function CenterPane() {
     setIsEditModalOpen(true);
   };
 
+  // const handleUpdateSong = async () => {
+  //   let compiledText = "";
+  //   if (isRawTextMode) {
+  //     compiledText = rawSongText;
+  //   } else {
+  //     compiledText = editSections
+  //       .filter(s => s.text.trim())
+  //       .map(s => `[${s.label}]\n${s.text.trim()}`)
+  //       .join('\n\n');
+  //   }
+
+  //   if (!editTitle.trim() || !compiledText.trim()) {
+  //     await message("Title and Lyrics are required.", { title: 'Required', kind: 'warning' });
+  //     return;
+  //   }
+
+  //   console.log("Checking activeItemId before saving:", activeItemId); // ADD THIS
+  //   if (!activeItemId) return;
+
+  //   try {
+  //     setIsSaving(true);
+  //     await invoke('update_song', { songId: activeItemId, title: editTitle, text: compiledText });
+  //     setIsSaving(false);
+  //     setIsEditModalOpen(false);
+  //     await emit('song-updated');
+
+  //     // Reload verses
+  //     const lyrics = await invoke<{ id: number, song_id: number, verse_order: number, text: string }[]>('get_song_lyrics', { songId: activeItemId });
+  //     const mappedVerses: Verse[] = lyrics.map(l => ({
+  //       id: l.id,
+  //       book_id: l.song_id,
+  //       book_name: editTitle,
+  //       chapter: 1,
+  //       verse_num: l.verse_order,
+  //       text: l.text,
+  //       secondary_text: undefined
+  //     }));
+  //     useStore.getState().setActiveVerses(mappedVerses, 'song', activeItemId, editTitle);
+  //   } catch (err) {
+  //     console.error(err);
+  //     setIsSaving(false);
+  //     await message("Failed to update song", { title: 'Error', kind: 'error' });
+  //   }
+  // };
+
   const handleUpdateSong = async () => {
+    console.log("STEP 1: Function started");
+
     let compiledText = "";
     if (isRawTextMode) {
       compiledText = rawSongText;
@@ -87,15 +134,33 @@ export default function CenterPane() {
         .map(s => `[${s.label}]\n${s.text.trim()}`)
         .join('\n\n');
     }
+    console.log("STEP 2: Text compiled");
 
     if (!editTitle.trim() || !compiledText.trim()) {
+      console.log("STEP 3: Failed validation (Title or lyrics empty)");
       await message("Title and Lyrics are required.", { title: 'Required', kind: 'warning' });
       return;
     }
-    if (!activeItemId) return;
+    console.log("STEP 3: Title and lyrics validated");
+
+    if (!activeItemId) {
+      console.log("STEP 4: ABORTED - activeItemId is null or undefined!", activeItemId);
+      return;
+    }
+    console.log("STEP 4: activeItemId verified:", activeItemId);
+
     try {
       setIsSaving(true);
-      await invoke('update_song', { songId: activeItemId, title: editTitle, text: compiledText });
+      console.log("STEP 5: About to invoke Rust backend 'update_song'");
+
+      await invoke('update_song', {
+        songId: activeItemId,
+        title: editTitle,
+        text: compiledText
+      });
+
+      console.log("STEP 6: Rust backend successfully responded!");
+
       setIsSaving(false);
       setIsEditModalOpen(false);
       await emit('song-updated');
@@ -113,7 +178,7 @@ export default function CenterPane() {
       }));
       useStore.getState().setActiveVerses(mappedVerses, 'song', activeItemId, editTitle);
     } catch (err) {
-      console.error(err);
+      console.error("STEP 6 ERROR:", err);
       setIsSaving(false);
       await message("Failed to update song", { title: 'Error', kind: 'error' });
     }
