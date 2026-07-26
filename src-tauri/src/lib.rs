@@ -5,7 +5,7 @@ pub mod server;
 use rusqlite::Connection;
 use serde::Serialize;
 use std::sync::Mutex;
-use tauri::{Manager, State};
+use tauri::{Emitter, Manager, State};
 
 pub struct AppState {
     pub db: Mutex<Connection>,
@@ -799,10 +799,42 @@ fn close_projector_window(app_handle: tauri::AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn open_console_window(app_handle: tauri::AppHandle) -> Result<(), String> {
+    use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+
+    // If console window already exists, just show and focus it
+    if let Some(window) = app_handle.get_webview_window("console") {
+        window.show().map_err(|e| e.to_string())?;
+        window.set_focus().map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+
+    // Otherwise, create a new webview window for the console
+    let builder =
+        WebviewWindowBuilder::new(&app_handle, "console", WebviewUrl::App("/console".into()))
+            .title("Veritas Developer Console")
+            .inner_size(750.0, 450.0)
+            .resizable(true)
+            .decorations(true);
+
+    let window = builder.build().map_err(|e| e.to_string())?;
+    let _ = window.show();
+    let _ = window.set_focus();
+
+    Ok(())
+}
+
+#[tauri::command]
 fn get_local_ip() -> Result<String, String> {
     local_ip_address::local_ip()
         .map(|ip| ip.to_string())
         .map_err(|e| format!("Failed to get local IP: {}", e))
+}
+
+#[derive(Clone, Serialize)]
+struct BackendLogPayload {
+    r#type: String,
+    message: String,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -811,6 +843,41 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
+            // Capture Rust panics and send them to the frontend console window
+            let app_handle_clone = app.handle().clone();
+            std::panic::set_hook(Box::new(move |panic_info| {
+                let message = if let Some(s) = panic_info.payload().downcast_ref::<&str>() {
+                    s.to_string()
+                } else if let Some(s) = panic_info.payload().downcast_ref::<String>() {
+                    s.clone()
+                } else {
+                    "Unknown Rust Panic".to_string()
+                };
+
+                let location = if let Some(loc) = panic_info.location() {
+                    format!(" at {}:{}", loc.file(), loc.line())
+                } else {
+                    "".to_string()
+                };
+
+                let full_msg = format!("Panic: {}{}", message, location);
+                let _ = app_handle_clone.emit(
+                    "backend-log",
+                    BackendLogPayload {
+                        r#type: "error".to_string(),
+                        message: full_msg,
+                    },
+                );
+            }));
+
+            // Automatically open the DevTools console window for debugging
+            #[cfg(debug_assertions)]
+            {
+                if let Some(window) = app.get_webview_window("main") {
+                    window.open_devtools();
+                }
+            }
+
             // Initialize database
             let conn = db::init_db(app.handle()).expect("Failed to initialize DB");
 
@@ -873,7 +940,8 @@ pub fn run() {
             get_available_monitors,
             launch_projector_window,
             close_projector_window,
-            get_local_ip
+            get_local_ip,
+            open_console_window
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
