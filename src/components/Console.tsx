@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
+import { attachConsole } from "@tauri-apps/plugin-log";
 
 interface LogEntry {
     id: number;
@@ -12,6 +13,8 @@ export default function Console() {
     const [logs, setLogs] = useState<LogEntry[]>([]);
 
     useEffect(() => {
+        let detachConsole: (() => void) | undefined;
+
         const originalLog = console.log;
         const originalWarn = console.warn;
         const originalError = console.error;
@@ -19,7 +22,9 @@ export default function Console() {
         const addLog = (type: "log" | "warn" | "error", args: unknown[]) => {
             const message = args
                 .map((arg) =>
-                    typeof arg === "object" ? JSON.stringify(arg, null, 2) : String(arg)
+                    typeof arg === "object" && arg !== null
+                        ? JSON.stringify(arg, null, 2)
+                        : String(arg)
                 )
                 .join(" ");
 
@@ -30,33 +35,19 @@ export default function Console() {
             ]);
         };
 
-        console.log = (...args) => {
-            originalLog(...args);
-            addLog("log", args);
-        };
-        console.warn = (...args) => {
-            originalWarn(...args);
-            addLog("warn", args);
-        };
-        console.error = (...args) => {
-            originalError(...args);
-            addLog("error", args);
-        };
-
-        // Capture global unhandled exceptions
         const handleGlobalError = (event: ErrorEvent) => {
-            addLog("error", [`Uncaught Exception: ${event.message} (${event.filename}:${event.lineno})`]);
+            addLog("error", [
+                `Uncaught Exception: ${event.message} (${event.filename}:${event.lineno})`,
+            ]);
         };
 
-        // Capture unhandled async promise rejections
         const handleRejection = (event: PromiseRejectionEvent) => {
-            addLog("error", [`Unhandled Promise Rejection: ${event.reason}`]);
+            addLog("error", [`Unhandled Promise Rejection: ${String(event.reason)}`]);
         };
 
         window.addEventListener("error", handleGlobalError);
         window.addEventListener("unhandledrejection", handleRejection);
 
-        // Listen for backend (Rust) logs/errors pushed via Tauri events
         const unlistenPromise = listen<{ type: "log" | "warn" | "error"; message: string }>(
             "backend-log",
             (event) => {
@@ -64,7 +55,31 @@ export default function Console() {
             }
         );
 
+        (async () => {
+            try {
+                detachConsole = await attachConsole();
+            } catch (err) {
+                addLog("error", [`Failed to attach Rust console: ${String(err)}`]);
+            }
+        })();
+
+        console.log = (...args) => {
+            originalLog(...args);
+            addLog("log", args);
+        };
+
+        console.warn = (...args) => {
+            originalWarn(...args);
+            addLog("warn", args);
+        };
+
+        console.error = (...args) => {
+            originalError(...args);
+            addLog("error", args);
+        };
+
         return () => {
+            detachConsole?.();
             console.log = originalLog;
             console.warn = originalWarn;
             console.error = originalError;
@@ -115,6 +130,7 @@ export default function Console() {
                     Clear
                 </button>
             </div>
+
             <div
                 style={{
                     flex: 1,
@@ -140,9 +156,7 @@ export default function Console() {
                                             ? "#cca700"
                                             : "#d4d4d4",
                                 background:
-                                    log.type === "error"
-                                        ? "rgba(244, 135, 113, 0.1)"
-                                        : "transparent",
+                                    log.type === "error" ? "rgba(244, 135, 113, 0.1)" : "transparent",
                                 padding: "3px 6px",
                                 borderRadius: "3px",
                                 wordBreak: "break-all",

@@ -1,20 +1,14 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { HashRouter, Routes, Route } from "react-router-dom";
-import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import App from "./App";
 import Projector from "../src/components/Projector";
 import Console from "./components/Console";
 import "./index.css";
 
-// Global shortcut listener for Ctrl+Shift+I (or Cmd+Shift+I)
-window.addEventListener("keydown", (e: KeyboardEvent) => {
-  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === "KeyI") {
-    e.preventDefault();
-    invoke("open_console_window").catch((err: unknown) => {
-      console.error("Failed to open console window:", err);
-    });
-  }
+listen("backend-log", (event) => {
+  console.log("BACKEND:", event.payload);
 });
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(

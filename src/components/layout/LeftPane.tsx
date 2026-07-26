@@ -804,7 +804,18 @@ export default function LeftPane() {
         await invoke('update_song', { songId: editingSongId, title: songTitle, text: compiledText });
       } else {
         console.log("[SAVE SONG] 5. Calling 'import_custom_song' on backend...");
-        await invoke('import_custom_song', { title: songTitle, text: compiledText });
+
+        console.log("Before invoke");
+
+        try {
+          const result = await invoke('import_custom_song', { title: songTitle, text: compiledText });
+
+          console.log("Success", result);
+        } catch (e) {
+          console.error("Invoke failed", e);
+        }
+
+        console.log("After invoke");
       }
 
       console.log("[SAVE SONG] 6. Backend call returned successfully. Resetting UI state...");
