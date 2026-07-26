@@ -36,6 +36,10 @@ export default function CenterPane() {
   ]);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Resizable console state
+  const [consoleHeight, setConsoleHeight] = useState(192);
+  const [isDraggingConsole, setIsDraggingConsole] = useState(false);
+
   const handleDeleteSong = async () => {
     if (!activeItemId) return;
 
@@ -317,6 +321,31 @@ export default function CenterPane() {
     };
   }, []);
 
+  // Handle the console dragging mechanics
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDraggingConsole) return;
+      const newHeight = window.innerHeight - e.clientY;
+      if (newHeight > 50 && newHeight < window.innerHeight * 0.8) {
+        setConsoleHeight(newHeight);
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDraggingConsole(false);
+    };
+
+    if (isDraggingConsole) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDraggingConsole]);
+
   return (
     <div className="flex-1 h-full bg-background flex flex-col relative overflow-hidden">
       {/* Edit Modal */}
@@ -576,9 +605,25 @@ export default function CenterPane() {
       {/* Background decoration */}
       <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 pointer-events-none" />
 
-      {/* Embedded Console Component at the bottom */}
-      <div className="h-48 border-t border-slate-700">
-        <Console />
+      {/* Resizable Embedded Console Component */}
+      <div
+        style={{ height: `${consoleHeight}px` }}
+        className={clsx(
+          "relative border-t border-slate-700 flex flex-col shrink-0",
+          isDraggingConsole && "select-none"
+        )}
+      >
+        <div
+          onMouseDown={(e) => {
+            e.preventDefault();
+            setIsDraggingConsole(true);
+          }}
+          className="absolute top-0 left-0 right-0 h-3 -mt-1.5 cursor-ns-resize z-50 hover:bg-blue-500/50 transition-colors"
+        />
+
+        <div className="flex-1 overflow-hidden">
+          <Console />
+        </div>
       </div>
     </div>
   );
