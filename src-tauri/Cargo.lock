@@ -4544,6 +4544,7 @@ name = "veritas"
 version = "1.0.0"
 dependencies = [
  "axum",
+ "dunce",
  "futures-util",
  "local-ip-address",
  "quick-xml",

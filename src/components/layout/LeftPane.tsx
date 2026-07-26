@@ -775,7 +775,7 @@ export default function LeftPane() {
   };
 
   return (
-    <div className="w-80 h-full bg-secondary border-r border-border flex flex-col shadow-lg shadow-black/10 z-10 relative">
+    <div className={clsx("w-80 h-full bg-secondary border-r border-border flex flex-col shadow-lg shadow-black/10 relative", (importNameModalOpen || isSongModalOpen || isManageBiblesOpen) ? "z-50" : "z-10")}>
       <div className="p-4 border-b border-border bg-background/50 backdrop-blur-md flex justify-between items-center shrink-0">
         <h2 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
           <img src="/logo.svg" alt="Veritas Logo" className="w-6 h-6" />

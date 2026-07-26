@@ -149,7 +149,11 @@ fn get_verse_count(
 #[tauri::command]
 fn import_bible(state: State<'_, AppState>, file_path: String, custom_name: Option<String>) -> Result<String, String> {
     let mut conn = state.db.lock().map_err(|e| e.to_string())?;
-    parser::import_zefania_xml(&file_path, &mut conn, custom_name)
+    #[cfg(target_os = "windows")]
+    let clean_path = dunce::canonicalize(&file_path).unwrap_or_else(|_| std::path::PathBuf::from(&file_path));
+    #[cfg(not(target_os = "windows"))]
+    let clean_path = std::path::PathBuf::from(&file_path);
+    parser::import_zefania_xml(clean_path.to_str().unwrap_or(&file_path), &mut conn, custom_name)
         .map_err(|e| format!("Import failed: {}", e))?;
     Ok("Bible imported successfully".to_string())
 }
@@ -573,7 +577,11 @@ fn import_songs_xml(state: State<'_, AppState>, file_path: String) -> Result<Str
     use quick_xml::events::Event;
     use quick_xml::reader::Reader;
 
-    let mut reader = Reader::from_file(&file_path).map_err(|e| e.to_string())?;
+    #[cfg(target_os = "windows")]
+    let clean_path = dunce::canonicalize(&file_path).unwrap_or_else(|_| std::path::PathBuf::from(&file_path));
+    #[cfg(not(target_os = "windows"))]
+    let clean_path = std::path::PathBuf::from(&file_path);
+    let mut reader = Reader::from_file(&clean_path).map_err(|e| e.to_string())?;
     reader.config_mut().trim_text(true);
 
     let mut buf = Vec::new();
