@@ -1,16 +1,16 @@
 use axum::{
     extract::{
         ws::{Message, WebSocket, WebSocketUpgrade},
-        State, Query, Request
+        Query, Request, State,
     },
     response::{Html, IntoResponse, Response},
     routing::get,
     Router,
 };
-use std::collections::HashMap;
-use tower_http::services::ServeFile;
-use tower::ServiceExt;
 use futures_util::{sink::SinkExt, stream::StreamExt};
+use std::collections::HashMap;
+use tower::ServiceExt;
+use tower_http::services::ServeFile;
 
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
@@ -22,8 +22,11 @@ pub struct ServerState {
     pub app_handle: AppHandle,
 }
 
-
-pub async fn start_server(app_handle: AppHandle, tx: broadcast::Sender<String>, shutdown_rx: tokio::sync::oneshot::Receiver<()>) {
+pub async fn start_server(
+    app_handle: AppHandle,
+    tx: broadcast::Sender<String>,
+    mut shutdown_rx: tokio::sync::watch::Receiver<()>,
+) {
     let state = Arc::new(ServerState { tx, app_handle });
 
     let app = Router::new()
@@ -35,9 +38,10 @@ pub async fn start_server(app_handle: AppHandle, tx: broadcast::Sender<String>, 
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();
     println!("Server running on http://localhost:8080");
+
     axum::serve(listener, app)
         .with_graceful_shutdown(async move {
-            let _ = shutdown_rx.await;
+            let _ = shutdown_rx.changed().await;
         })
         .await
         .unwrap();
@@ -62,7 +66,7 @@ async fn media_handler(
             .body(axum::body::Body::from("Missing path parameter"))
             .unwrap();
     }
-    
+
     if !std::path::Path::new(&path).exists() {
         return Response::builder()
             .status(axum::http::StatusCode::NOT_FOUND)

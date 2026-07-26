@@ -830,7 +830,8 @@ pub fn run() {
                 broadcast_tx: tx.clone(),
             });
 
-            let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
+            // Use watch channel for cloneable shutdown signal
+            let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(());
 
             // Spawn the Axum server
             let app_handle = app.handle().clone();
@@ -838,20 +839,23 @@ pub fn run() {
                 server::start_server(app_handle, tx, shutdown_rx).await;
             });
 
-            let app_handle_clone2 = app.handle().clone();
-            tauri::async_runtime::spawn(async move {
-                let mut shutdown_tx = Some(shutdown_tx);
-                loop {
-                    tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
-                    use tauri::Manager;
-                    let windows = app_handle_clone2.webview_windows();
-                    if windows.is_empty() {
-                        if let Some(tx) = shutdown_tx.take() {
-                            let _ = tx.send(());
+            // Listen to window close events across all windows
+            app.webview_windows().iter().for_each(|(_, window)| {
+                let s_tx = shutdown_tx.clone();
+                window.on_window_event(move |event| {
+                    if let tauri::WindowEvent::CloseRequested { .. } = event {
+                        let _ = s_tx.send(());
+
+                        // Force exit process on Windows after short delay to release db lock
+                        #[cfg(target_os = "windows")]
+                        {
+                            std::thread::spawn(|| {
+                                std::thread::sleep(std::time::Duration::from_millis(200));
+                                std::process::exit(0);
+                            });
                         }
-                        break;
                     }
-                }
+                });
             });
 
             Ok(())
