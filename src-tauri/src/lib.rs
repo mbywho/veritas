@@ -67,7 +67,7 @@ pub struct SongVerse {
 
 #[tauri::command]
 fn get_bibles(state: State<'_, AppState>) -> Result<Vec<Bible>, String> {
-    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = state.db.lock().unwrap_or_else(|p| p.into_inner());
     let mut stmt = conn
         .prepare("SELECT id, name, language FROM Bibles ORDER BY name ASC")
         .map_err(|e| e.to_string())?;
@@ -90,7 +90,7 @@ fn get_bibles(state: State<'_, AppState>) -> Result<Vec<Bible>, String> {
 
 #[tauri::command]
 fn get_books(state: State<'_, AppState>, bible_id: i32) -> Result<Vec<Book>, String> {
-    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = state.db.lock().unwrap_or_else(|p| p.into_inner());
     let mut stmt = conn
         .prepare(
             "SELECT id, bible_id, name, number FROM Books WHERE bible_id = ?1 ORDER BY number ASC",
@@ -120,7 +120,7 @@ fn get_chapter_count(
     bible_id: i32,
     book_number: i32,
 ) -> Result<i32, String> {
-    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = state.db.lock().unwrap_or_else(|p| p.into_inner());
     let mut stmt = conn.prepare("SELECT MAX(v.chapter) FROM Verses v JOIN Books b ON b.id = v.book_id WHERE b.bible_id = ?1 AND b.number = ?2").map_err(|e| e.to_string())?;
     let count: i32 = stmt
         .query_row(rusqlite::params![bible_id, book_number], |row| row.get(0))
@@ -135,7 +135,7 @@ fn get_verse_count(
     book_number: i32,
     chapter_number: i32,
 ) -> Result<i32, String> {
-    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = state.db.lock().unwrap_or_else(|p| p.into_inner());
     let mut stmt = conn.prepare("SELECT MAX(v.verse_num) FROM Verses v JOIN Books b ON b.id = v.book_id WHERE b.bible_id = ?1 AND b.number = ?2 AND v.chapter = ?3").map_err(|e| e.to_string())?;
     let count: i32 = stmt
         .query_row(
@@ -147,20 +147,29 @@ fn get_verse_count(
 }
 
 #[tauri::command]
-fn import_bible(state: State<'_, AppState>, file_path: String, custom_name: Option<String>) -> Result<String, String> {
-    let mut conn = state.db.lock().map_err(|e| e.to_string())?;
+fn import_bible(
+    state: State<'_, AppState>,
+    file_path: String,
+    custom_name: Option<String>,
+) -> Result<String, String> {
+    let mut conn = state.db.lock().unwrap_or_else(|p| p.into_inner());
     #[cfg(target_os = "windows")]
-    let clean_path = dunce::canonicalize(&file_path).unwrap_or_else(|_| std::path::PathBuf::from(&file_path));
+    let clean_path =
+        dunce::canonicalize(&file_path).unwrap_or_else(|_| std::path::PathBuf::from(&file_path));
     #[cfg(not(target_os = "windows"))]
     let clean_path = std::path::PathBuf::from(&file_path);
-    parser::import_zefania_xml(clean_path.to_str().unwrap_or(&file_path), &mut conn, custom_name)
-        .map_err(|e| format!("Import failed: {}", e))?;
+    parser::import_zefania_xml(
+        clean_path.to_str().unwrap_or(&file_path),
+        &mut conn,
+        custom_name,
+    )
+    .map_err(|e| format!("Import failed: {}", e))?;
     Ok("Bible imported successfully".to_string())
 }
 
 #[tauri::command]
 fn delete_bible(state: State<'_, AppState>, bible_id: i32) -> Result<String, String> {
-    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = state.db.lock().unwrap_or_else(|p| p.into_inner());
     conn.execute(
         "DELETE FROM Bibles WHERE id = ?1",
         rusqlite::params![bible_id],
@@ -175,7 +184,7 @@ fn rename_bible(
     bible_id: i32,
     new_name: String,
 ) -> Result<String, String> {
-    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = state.db.lock().unwrap_or_else(|p| p.into_inner());
     conn.execute(
         "UPDATE Bibles SET name = ?1 WHERE id = ?2",
         rusqlite::params![new_name.trim(), bible_id],
@@ -192,7 +201,7 @@ fn search_verses(
     secondary_bible_id: Option<i32>,
     testament_filter: Option<String>,
 ) -> Result<Vec<Verse>, String> {
-    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = state.db.lock().unwrap_or_else(|p| p.into_inner());
 
     let safe_query = sanitize_fts_query(&query);
     if safe_query.trim().is_empty() {
@@ -285,7 +294,7 @@ fn get_chapter(
     chapter_number: i32,
     secondary_bible_id: Option<i32>,
 ) -> Result<Vec<Verse>, String> {
-    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = state.db.lock().unwrap_or_else(|p| p.into_inner());
 
     let sql = if secondary_bible_id.is_some() {
         "SELECT v.id, v.book_id, b.name as book_name, b2.name as secondary_book_name, v.chapter, v.verse_num, v.text, v2.text as secondary_text
@@ -375,7 +384,7 @@ fn strip_html_tags(input: &str) -> String {
 
 #[tauri::command]
 fn search_songs(state: State<'_, AppState>, query: String) -> Result<Vec<Song>, String> {
-    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = state.db.lock().unwrap_or_else(|p| p.into_inner());
 
     let safe_query = sanitize_fts_query(&query);
     if safe_query.trim().is_empty() {
@@ -413,7 +422,7 @@ fn search_songs(state: State<'_, AppState>, query: String) -> Result<Vec<Song>, 
 
 #[tauri::command]
 fn get_all_songs(state: State<'_, AppState>) -> Result<Vec<Song>, String> {
-    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = state.db.lock().unwrap_or_else(|p| p.into_inner());
 
     let mut stmt = conn
         .prepare(
@@ -444,7 +453,7 @@ fn get_all_songs(state: State<'_, AppState>) -> Result<Vec<Song>, String> {
 
 #[tauri::command]
 fn get_song_lyrics(state: State<'_, AppState>, song_id: i32) -> Result<Vec<SongVerse>, String> {
-    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = state.db.lock().unwrap_or_else(|p| p.into_inner());
 
     let mut stmt = conn
         .prepare(
@@ -486,7 +495,7 @@ fn import_custom_song(
     title: String,
     text: String,
 ) -> Result<String, String> {
-    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = state.db.lock().unwrap_or_else(|p| p.into_inner());
 
     let safe_title = sanitize_fts_query(&title);
     if !safe_title.trim().is_empty() {
@@ -535,14 +544,18 @@ fn update_song(
     title: String,
     text: String,
 ) -> Result<String, String> {
-    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = state.db.lock().unwrap_or_else(|p| p.into_inner());
 
-    let updated = conn.execute(
-        "UPDATE Songs SET title = ?1 WHERE id = ?2",
-        rusqlite::params![title, song_id],
-    )
-    .map_err(|e| e.to_string())?;
-    println!("Updated song {} to title '{}', rows affected: {}", song_id, title, updated);
+    let updated = conn
+        .execute(
+            "UPDATE Songs SET title = ?1 WHERE id = ?2",
+            rusqlite::params![title, song_id],
+        )
+        .map_err(|e| e.to_string())?;
+    println!(
+        "Updated song {} to title '{}', rows affected: {}",
+        song_id, title, updated
+    );
 
     // Delete old verses
     conn.execute("DELETE FROM SongVerses WHERE song_id = ?1", [song_id])
@@ -566,7 +579,7 @@ fn update_song(
 
 #[tauri::command]
 fn delete_song(state: State<'_, AppState>, song_id: i32) -> Result<String, String> {
-    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = state.db.lock().unwrap_or_else(|p| p.into_inner());
     conn.execute("DELETE FROM Songs WHERE id = ?1", [song_id])
         .map_err(|e| e.to_string())?;
     Ok("Song deleted successfully".to_string())
@@ -578,7 +591,8 @@ fn import_songs_xml(state: State<'_, AppState>, file_path: String) -> Result<Str
     use quick_xml::reader::Reader;
 
     #[cfg(target_os = "windows")]
-    let clean_path = dunce::canonicalize(&file_path).unwrap_or_else(|_| std::path::PathBuf::from(&file_path));
+    let clean_path =
+        dunce::canonicalize(&file_path).unwrap_or_else(|_| std::path::PathBuf::from(&file_path));
     #[cfg(not(target_os = "windows"))]
     let clean_path = std::path::PathBuf::from(&file_path);
     let mut reader = Reader::from_file(&clean_path).map_err(|e| e.to_string())?;
@@ -594,7 +608,7 @@ fn import_songs_xml(state: State<'_, AppState>, file_path: String) -> Result<Str
 
     let mut songs_imported = 0;
 
-    let mut conn = state.db.lock().map_err(|e| e.to_string())?;
+    let mut conn = state.db.lock().unwrap_or_else(|p| p.into_inner());
     let tx = conn.transaction().map_err(|e| e.to_string())?;
 
     {
