@@ -753,7 +753,7 @@ fn launch_projector_window(
         let mut builder = WebviewWindowBuilder::new(
             &app_handle,
             "projector",
-            WebviewUrl::App("/projector".into()),
+            WebviewUrl::App("#/projector".into()),
         )
         .title("Veritas Projector")
         .visible(false); // Build hidden so we can manually size it safely
@@ -811,7 +811,7 @@ fn open_console_window(app_handle: tauri::AppHandle) -> Result<(), String> {
 
     // Otherwise, create a new webview window for the console
     let builder =
-        WebviewWindowBuilder::new(&app_handle, "console", WebviewUrl::App("/console".into()))
+        WebviewWindowBuilder::new(&app_handle, "console", WebviewUrl::App("#/console".into()))
             .title("Veritas Developer Console")
             .inner_size(750.0, 450.0)
             .resizable(true)
