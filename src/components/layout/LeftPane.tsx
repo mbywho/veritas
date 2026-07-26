@@ -219,21 +219,22 @@ export default function LeftPane() {
   }, [secondaryBibleId]);
 
   const handleImport = async () => {
+    console.log("STEP 1");
+
     try {
+      console.log("STEP 2");
+
       const selected = await open({
         multiple: false,
-        filters: [{ name: 'XML', extensions: ['xml'] }]
+        filters: [{ name: "XML", extensions: ["xml"] }],
       });
 
-      if (selected && typeof selected === 'string') {
-        setPendingImportFile(selected);
-        setImportBibleName('');
-        setImportNameModalOpen(true);
-      }
-    } catch (err) {
-      console.error(err);
-      alert('Failed to select file');
+      console.log("STEP 3", selected);
+    } catch (e) {
+      console.error("STEP ERROR", e);
     }
+
+    console.log("STEP 4");
   };
 
   const handleConfirmImport = async (e: React.FormEvent) => {
