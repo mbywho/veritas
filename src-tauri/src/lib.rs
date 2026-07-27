@@ -915,24 +915,8 @@ pub fn run() {
                 server::start_server(app_handle, tx, shutdown_rx).await;
             });
 
-            // Listen to window close events across all windows
-            app.webview_windows().iter().for_each(|(_, window)| {
-                let s_tx = shutdown_tx.clone();
-                window.on_window_event(move |event| {
-                    if let tauri::WindowEvent::CloseRequested { .. } = event {
-                        let _ = s_tx.send(());
+            // Wait, we can remove the window close event listener here since we will handle it in .run()
 
-                        // Force exit process on Windows after short delay to release db lock
-                        #[cfg(target_os = "windows")]
-                        {
-                            std::thread::spawn(|| {
-                                std::thread::sleep(std::time::Duration::from_millis(200));
-                                std::process::exit(0);
-                            });
-                        }
-                    }
-                });
-            });
 
             Ok(())
         })
@@ -960,6 +944,15 @@ pub fn run() {
             get_local_ip,
             open_console_window
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|_app_handle, event| {
+            match event {
+                tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit => {
+                    // Force exit process to release db lock and clean up Tokios
+                    std::process::exit(0);
+                }
+                _ => {}
+            }
+        });
 }

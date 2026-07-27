@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import { bookTranslationMap } from '../../utils/bibleMap';
-import { confirm, message } from '@tauri-apps/plugin-dialog';
+// Removed buggy native dialog imports
 import { emit } from '@tauri-apps/api/event';
 import { parseBibleReference } from '../../utils/bibleParser';
 import { useStore, Verse } from '../../store/useStore';
@@ -43,14 +43,14 @@ export default function CenterPane() {
   const handleDeleteSong = async () => {
     if (!activeItemId) return;
 
-    const yes = await confirm("Are you sure you want to delete this song?", { title: 'Delete Song', kind: 'warning' });
+    const yes = window.confirm("Are you sure you want to delete this song?");
     if (yes) {
       try {
         await invoke('delete_song', { songId: activeItemId });
         useStore.getState().setActiveVerses([], 'song', null, '');
       } catch (err) {
         console.error(err);
-        await message("Failed to delete song.", { title: 'Error', kind: 'error' });
+        alert("Failed to delete song.");
       }
     }
   };
@@ -77,51 +77,6 @@ export default function CenterPane() {
     setIsEditModalOpen(true);
   };
 
-  // const handleUpdateSong = async () => {
-  //   let compiledText = "";
-  //   if (isRawTextMode) {
-  //     compiledText = rawSongText;
-  //   } else {
-  //     compiledText = editSections
-  //       .filter(s => s.text.trim())
-  //       .map(s => `[${s.label}]\n${s.text.trim()}`)
-  //       .join('\n\n');
-  //   }
-
-  //   if (!editTitle.trim() || !compiledText.trim()) {
-  //     await message("Title and Lyrics are required.", { title: 'Required', kind: 'warning' });
-  //     return;
-  //   }
-
-  //   console.log("Checking activeItemId before saving:", activeItemId); // ADD THIS
-  //   if (!activeItemId) return;
-
-  //   try {
-  //     setIsSaving(true);
-  //     await invoke('update_song', { songId: activeItemId, title: editTitle, text: compiledText });
-  //     setIsSaving(false);
-  //     setIsEditModalOpen(false);
-  //     await emit('song-updated');
-
-  //     // Reload verses
-  //     const lyrics = await invoke<{ id: number, song_id: number, verse_order: number, text: string }[]>('get_song_lyrics', { songId: activeItemId });
-  //     const mappedVerses: Verse[] = lyrics.map(l => ({
-  //       id: l.id,
-  //       book_id: l.song_id,
-  //       book_name: editTitle,
-  //       chapter: 1,
-  //       verse_num: l.verse_order,
-  //       text: l.text,
-  //       secondary_text: undefined
-  //     }));
-  //     useStore.getState().setActiveVerses(mappedVerses, 'song', activeItemId, editTitle);
-  //   } catch (err) {
-  //     console.error(err);
-  //     setIsSaving(false);
-  //     await message("Failed to update song", { title: 'Error', kind: 'error' });
-  //   }
-  // };
-
   const handleUpdateSong = async () => {
     console.log("STEP 1: Function started");
 
@@ -138,7 +93,7 @@ export default function CenterPane() {
 
     if (!editTitle.trim() || !compiledText.trim()) {
       console.log("STEP 3: Failed validation (Title or lyrics empty)");
-      await message("Title and Lyrics are required.", { title: 'Required', kind: 'warning' });
+      alert("Title and Lyrics are required.");
       return;
     }
     console.log("STEP 3: Title and lyrics validated");
@@ -180,7 +135,7 @@ export default function CenterPane() {
     } catch (err) {
       console.error("STEP 6 ERROR:", err);
       setIsSaving(false);
-      await message("Failed to update song", { title: 'Error', kind: 'error' });
+      alert("Failed to update song");
     }
   };
 

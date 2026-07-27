@@ -4,6 +4,7 @@ import RightPane from './components/layout/RightPane';
 import { useTauriSync } from './hooks/useTauriSync';
 import { useStore } from './store/useStore';
 import { useEffect } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 
 function App() {
   // Sync state as control panel
@@ -14,7 +15,7 @@ function App() {
 
   // Auto-launch the projector window on startup
   useEffect(() => {
-    import('@tauri-apps/api/core').then(async ({ invoke }) => {
+    (async () => {
       try {
         const monitors: any[] = await invoke('get_available_monitors');
         // If they have multiple monitors, open on the second one. Otherwise open on primary.
@@ -23,7 +24,7 @@ function App() {
       } catch (e) {
         console.error("Auto launch failed", e);
       }
-    });
+    })();
   }, []);
 
   useEffect(() => {
@@ -41,9 +42,7 @@ function App() {
       } else if (e.key === 'PageUp' || e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
         goToPrevSlide();
       } else if (e.key === 'Escape') {
-        import('@tauri-apps/api/core').then(({ invoke }) => {
-          invoke('close_projector_window').catch(console.error);
-        });
+        invoke('close_projector_window').catch(console.error);
       }
     };
 
@@ -52,7 +51,7 @@ function App() {
   }, [goToNextSlide, goToPrevSlide]);
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground font-sans">
+    <div className="flex h-full w-full overflow-hidden bg-background text-foreground font-sans">
       <LeftPane />
       <CenterPane />
       <RightPane />

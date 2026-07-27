@@ -3,7 +3,7 @@ import { clsx } from 'clsx';
 import { useState, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { open, confirm, message } from '@tauri-apps/plugin-dialog';
+import { open } from '@tauri-apps/plugin-dialog';
 import { useStore, Verse } from '../../store/useStore';
 import { parseBibleReference } from '../../utils/bibleParser';
 import { bookTranslationMap } from '../../utils/bibleMap';
@@ -219,22 +219,20 @@ export default function LeftPane() {
   }, [secondaryBibleId]);
 
   const handleImport = async () => {
-    console.log("STEP 1");
-
     try {
-      console.log("STEP 2");
-
       const selected = await open({
         multiple: false,
         filters: [{ name: "XML", extensions: ["xml"] }],
       });
 
-      console.log("STEP 3", selected);
+      if (selected && typeof selected === 'string') {
+        setPendingImportFile(selected);
+        setImportBibleName('');
+        setImportNameModalOpen(true);
+      }
     } catch (e) {
-      console.error("STEP ERROR", e);
+      console.error("Import error", e);
     }
-
-    console.log("STEP 4");
   };
 
   const handleConfirmImport = async (e: React.FormEvent) => {
@@ -263,7 +261,7 @@ export default function LeftPane() {
   };
 
   const handleDeleteBible = async (bibleId: number) => {
-    const yes = await confirm('Are you sure you want to permanently delete this Bible? This action cannot be undone.', { title: 'Delete Bible', kind: 'warning' });
+    const yes = window.confirm('Are you sure you want to permanently delete this Bible? This action cannot be undone.');
     if (yes) {
       try {
         await invoke('delete_bible', { bibleId });
@@ -277,7 +275,7 @@ export default function LeftPane() {
         }
       } catch (err) {
         console.error(err);
-        await message('Failed to delete Bible', { title: 'Error', kind: 'error' });
+        alert('Failed to delete Bible');
       }
     }
   };
@@ -291,7 +289,7 @@ export default function LeftPane() {
         setEditingBibleId(null);
       } catch (err) {
         console.error(err);
-        await message('Failed to rename Bible', { title: 'Error', kind: 'error' });
+        alert('Failed to rename Bible');
       }
     } else {
       setEditingBibleId(null);
@@ -682,14 +680,14 @@ export default function LeftPane() {
         setIsImportingXML(true);
         const res = await invoke<string>('import_songs_xml', { filePath: selectedPath });
         setIsImportingXML(false);
-        await message(res, { title: 'Import Successful', kind: 'info' });
+        alert(res);
         const results = await invoke<Song[]>('search_songs', { query: '' });
         setSongResults(results);
       }
     } catch (err: any) {
       setIsImportingXML(false);
       console.error(err);
-      await message(err.toString(), { title: 'Import Failed', kind: 'error' });
+      alert(err.toString());
     }
   };
 
@@ -712,48 +710,6 @@ export default function LeftPane() {
   //             text = `[${potentialLabel}]\n${text}`;
   //             hasLabel = true;
   //           }
-  //         }
-  //         if (!hasLabel) {
-  //           text = `[Verse ${i + 1}]\n${text}`;
-  //         }
-  //         return text;
-  //       }).join('\n\n');
-  //     }
-  //   } else {
-  //     compiledText = songSections
-  //       .filter(s => s.text.trim())
-  //       .map(s => `[${s.label}]\n${s.text.trim()}`)
-  //       .join('\n\n');
-  //   }
-
-  //   if (!songTitle.trim() || !compiledText.trim()) {
-  //     await message("Title and Lyrics are required.", { title: 'Required', kind: 'warning' });
-  //     return;
-  //   }
-
-  //   try {
-  //     setIsSavingSong(true);
-  //     if (editingSongId !== null) {
-  //       await invoke('update_song', { songId: editingSongId, title: songTitle, text: compiledText });
-  //     } else {
-  //       await invoke('import_custom_song', { title: songTitle, text: compiledText });
-  //     }
-  //     setIsSavingSong(false);
-  //     setIsSongModalOpen(false);
-  //     setSongTitle('');
-  //     setSongSections([{ id: 'initial', label: 'Verse 1', text: '' }]);
-  //     setRawSongText('');
-  //     setIsRawTextMode(false);
-  //     setEditingSongId(null);
-  //     await message(editingSongId !== null ? "Song updated successfully!" : "Song imported successfully!", { title: 'Success', kind: 'info' });
-  //     setSearchQuery(songTitle);
-  //   } catch (err) {
-  //     console.error(err);
-  //     setIsSavingSong(false);
-  //     await message(editingSongId !== null ? "Failed to update song" : "Failed to import song", { title: 'Error', kind: 'error' });
-  //   }
-  // };
-
   const handleSaveSong = async () => {
     console.log("[SAVE SONG] 1. Save button clicked");
     let compiledText = '';
@@ -792,7 +748,7 @@ export default function LeftPane() {
     console.log("[SAVE SONG] 3. Validating inputs...");
     if (!songTitle.trim() || !compiledText.trim()) {
       console.log("[SAVE SONG] Validation failed: Empty fields");
-      await message("Title and Lyrics are required.", { title: 'Required', kind: 'warning' });
+      alert("Title and Lyrics are required.");
       return;
     }
 
@@ -805,18 +761,7 @@ export default function LeftPane() {
         await invoke('update_song', { songId: editingSongId, title: songTitle, text: compiledText });
       } else {
         console.log("[SAVE SONG] 5. Calling 'import_custom_song' on backend...");
-
-        console.log("Before invoke");
-
-        try {
-          const result = await invoke('import_custom_song', { title: songTitle, text: compiledText });
-
-          console.log("Success", result);
-        } catch (e) {
-          console.error("Invoke failed", e);
-        }
-
-        console.log("After invoke");
+        await invoke('import_custom_song', { title: songTitle, text: compiledText });
       }
 
       console.log("[SAVE SONG] 6. Backend call returned successfully. Resetting UI state...");
@@ -828,22 +773,19 @@ export default function LeftPane() {
       setIsRawTextMode(false);
       setEditingSongId(null);
 
-      console.log("[SAVE SONG] 7. Triggering native success message...");
-      await message(editingSongId !== null ? "Song updated successfully!" : "Song imported successfully!", { title: 'Success', kind: 'info' });
-
       console.log("[SAVE SONG] 8. Setting search query and finishing up.");
       setSearchQuery(songTitle);
     } catch (err) {
       console.error("[SAVE SONG] ERROR caught in handleSaveSong:", err);
       setIsSavingSong(false);
-      await message(editingSongId !== null ? "Failed to update song" : "Failed to import song", { title: 'Error', kind: 'error' });
+      alert(editingSongId !== null ? "Failed to update song: " + err : "Failed to import song: " + err);
     }
   };
 
   const handleDeleteSong = async (song: Song, e: React.MouseEvent) => {
     e.stopPropagation();
 
-    const yes = await confirm(`Are you sure you want to delete "${song.title}"?`, { title: 'Delete Song', kind: 'warning' });
+    const yes = window.confirm(`Are you sure you want to delete "${song.title}"?`);
     if (!yes) return;
 
     try {
@@ -855,7 +797,7 @@ export default function LeftPane() {
       }
     } catch (err) {
       console.error(err);
-      await message("Failed to delete song.", { title: 'Error', kind: 'error' });
+      alert("Failed to delete song.");
     }
   };
 
