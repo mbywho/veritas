@@ -25,7 +25,6 @@ pub struct ServerState {
 pub async fn start_server(
     app_handle: AppHandle,
     tx: broadcast::Sender<String>,
-    mut shutdown_rx: tokio::sync::watch::Receiver<()>,
 ) {
     let state = Arc::new(ServerState { tx, app_handle });
 
@@ -40,9 +39,6 @@ pub async fn start_server(
     println!("Server running on http://localhost:8080");
 
     axum::serve(listener, app)
-        .with_graceful_shutdown(async move {
-            let _ = shutdown_rx.changed().await;
-        })
         .await
         .unwrap();
 }

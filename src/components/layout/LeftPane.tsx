@@ -1,9 +1,9 @@
-import { Search, Book, Download, Loader2, BookOpen, Music, Edit2, Trash2, Plus, History, Settings, FileDown } from 'lucide-react';
+import { Search, Book, Download, Loader2, BookOpen, Music, Edit2, Trash2, Plus, History, Settings, FileDown, Sun, Moon } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useState, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
-import { open } from '@tauri-apps/plugin-dialog';
+import { listen, emit } from '@tauri-apps/api/event';
+import { open, confirm, message } from '@tauri-apps/plugin-dialog';
 import { useStore, Verse } from '../../store/useStore';
 import { parseBibleReference } from '../../utils/bibleParser';
 import { bookTranslationMap } from '../../utils/bibleMap';
@@ -41,6 +41,8 @@ export default function LeftPane() {
   const activeTab = useStore((state) => state.activeTab);
   const setActiveTab = useStore((state) => state.setActiveTab);
 
+
+  const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('veritas_themeMode') !== 'light');
   const [isImporting, setIsImporting] = useState(false);
   const [importNameModalOpen, setImportNameModalOpen] = useState(false);
   const [pendingImportFile, setPendingImportFile] = useState<string | null>(null);
@@ -224,10 +226,8 @@ export default function LeftPane() {
         multiple: false,
         filters: [{ name: "XML", extensions: ["xml"] }],
       });
-
       if (selected && typeof selected === 'string') {
         setPendingImportFile(selected);
-        setImportBibleName('');
         setImportNameModalOpen(true);
       }
     } catch (e) {
@@ -261,7 +261,7 @@ export default function LeftPane() {
   };
 
   const handleDeleteBible = async (bibleId: number) => {
-    const yes = window.confirm('Are you sure you want to permanently delete this Bible? This action cannot be undone.');
+    const yes = await confirm('Are you sure you want to permanently delete this Bible? This action cannot be undone.', { title: 'Delete Bible', kind: 'warning' });
     if (yes) {
       try {
         await invoke('delete_bible', { bibleId });
@@ -275,7 +275,7 @@ export default function LeftPane() {
         }
       } catch (err) {
         console.error(err);
-        alert('Failed to delete Bible');
+        await message('Failed to delete Bible', { title: 'Error', kind: 'error' });
       }
     }
   };
@@ -289,7 +289,7 @@ export default function LeftPane() {
         setEditingBibleId(null);
       } catch (err) {
         console.error(err);
-        alert('Failed to rename Bible');
+        await message('Failed to rename Bible', { title: 'Error', kind: 'error' });
       }
     } else {
       setEditingBibleId(null);
@@ -680,14 +680,14 @@ export default function LeftPane() {
         setIsImportingXML(true);
         const res = await invoke<string>('import_songs_xml', { filePath: selectedPath });
         setIsImportingXML(false);
-        alert(res);
+        await message(res, { title: 'Import Successful', kind: 'info' });
         const results = await invoke<Song[]>('search_songs', { query: '' });
         setSongResults(results);
       }
     } catch (err: any) {
       setIsImportingXML(false);
       console.error(err);
-      alert(err.toString());
+      await message(err.toString(), { title: 'Import Failed', kind: 'error' });
     }
   };
 
@@ -710,6 +710,48 @@ export default function LeftPane() {
   //             text = `[${potentialLabel}]\n${text}`;
   //             hasLabel = true;
   //           }
+  //         }
+  //         if (!hasLabel) {
+  //           text = `[Verse ${i + 1}]\n${text}`;
+  //         }
+  //         return text;
+  //       }).join('\n\n');
+  //     }
+  //   } else {
+  //     compiledText = songSections
+  //       .filter(s => s.text.trim())
+  //       .map(s => `[${s.label}]\n${s.text.trim()}`)
+  //       .join('\n\n');
+  //   }
+
+  //   if (!songTitle.trim() || !compiledText.trim()) {
+  //     await message("Title and Lyrics are required.", { title: 'Required', kind: 'warning' });
+  //     return;
+  //   }
+
+  //   try {
+  //     setIsSavingSong(true);
+  //     if (editingSongId !== null) {
+  //       await invoke('update_song', { songId: editingSongId, title: songTitle, text: compiledText });
+  //     } else {
+  //       await invoke('import_custom_song', { title: songTitle, text: compiledText });
+  //     }
+  //     setIsSavingSong(false);
+  //     setIsSongModalOpen(false);
+  //     setSongTitle('');
+  //     setSongSections([{ id: 'initial', label: 'Verse 1', text: '' }]);
+  //     setRawSongText('');
+  //     setIsRawTextMode(false);
+  //     setEditingSongId(null);
+  //     await message(editingSongId !== null ? "Song updated successfully!" : "Song imported successfully!", { title: 'Success', kind: 'info' });
+  //     setSearchQuery(songTitle);
+  //   } catch (err) {
+  //     console.error(err);
+  //     setIsSavingSong(false);
+  //     await message(editingSongId !== null ? "Failed to update song" : "Failed to import song", { title: 'Error', kind: 'error' });
+  //   }
+  // };
+
   const handleSaveSong = async () => {
     console.log("[SAVE SONG] 1. Save button clicked");
     let compiledText = '';
@@ -748,7 +790,7 @@ export default function LeftPane() {
     console.log("[SAVE SONG] 3. Validating inputs...");
     if (!songTitle.trim() || !compiledText.trim()) {
       console.log("[SAVE SONG] Validation failed: Empty fields");
-      alert("Title and Lyrics are required.");
+      await message("Title and Lyrics are required.", { title: 'Required', kind: 'warning' });
       return;
     }
 
@@ -761,7 +803,10 @@ export default function LeftPane() {
         await invoke('update_song', { songId: editingSongId, title: songTitle, text: compiledText });
       } else {
         console.log("[SAVE SONG] 5. Calling 'import_custom_song' on backend...");
-        await invoke('import_custom_song', { title: songTitle, text: compiledText });
+
+        // Removed the swallowing inner try/catch so errors bubble up correctly
+        const result = await invoke('import_custom_song', { title: songTitle, text: compiledText });
+        console.log("Success", result);
       }
 
       console.log("[SAVE SONG] 6. Backend call returned successfully. Resetting UI state...");
@@ -773,19 +818,19 @@ export default function LeftPane() {
       setIsRawTextMode(false);
       setEditingSongId(null);
 
-      console.log("[SAVE SONG] 8. Setting search query and finishing up.");
+      await emit('song-updated');
       setSearchQuery(songTitle);
     } catch (err) {
       console.error("[SAVE SONG] ERROR caught in handleSaveSong:", err);
       setIsSavingSong(false);
-      alert(editingSongId !== null ? "Failed to update song: " + err : "Failed to import song: " + err);
+      await message(editingSongId !== null ? "Failed to update song" : "Failed to import song", { title: 'Error', kind: 'error' });
     }
   };
 
   const handleDeleteSong = async (song: Song, e: React.MouseEvent) => {
     e.stopPropagation();
 
-    const yes = window.confirm(`Are you sure you want to delete "${song.title}"?`);
+    const yes = await confirm(`Are you sure you want to delete "${song.title}"?`, { title: 'Delete Song', kind: 'warning' });
     if (!yes) return;
 
     try {
@@ -797,7 +842,7 @@ export default function LeftPane() {
       }
     } catch (err) {
       console.error(err);
-      alert("Failed to delete song.");
+      await message("Failed to delete song.", { title: 'Error', kind: 'error' });
     }
   };
 
@@ -808,39 +853,61 @@ export default function LeftPane() {
           <img src="/logo.svg" alt="Veritas Logo" className="w-6 h-6" />
           Veritas
         </h2>
-        {activeTab === 'bibles' ? (
+        <div className="flex items-center gap-2">
           <button
-            onClick={handleImport}
-            disabled={isImporting}
+            onClick={() => {
+              const root = document.documentElement;
+              const isDark = root.classList.contains('dark');
+              if (isDark) {
+                root.classList.remove('dark');
+                localStorage.setItem('veritas_themeMode', 'light');
+                setIsDarkMode(false);
+              } else {
+                root.classList.add('dark');
+                localStorage.setItem('veritas_themeMode', 'dark');
+                setIsDarkMode(true);
+              }
+            }}
             className="text-muted-foreground hover:text-blue-400 transition-colors p-1"
-            title="Import Zefania XML"
+            title="Toggle Light/Dark Mode"
           >
-            {isImporting ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+            {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
           </button>
-        ) : activeTab === 'songs' ? (
-          <div className="flex items-center gap-2">
+
+          {activeTab === 'bibles' ? (
             <button
-              onClick={handleImportSongsXML}
-              disabled={isImportingXML}
+              onClick={handleImport}
+              disabled={isImporting}
               className="text-muted-foreground hover:text-blue-400 transition-colors p-1"
-              title="Import Veritas Songs XML"
+              title="Import Zefania XML"
             >
-              {isImportingXML ? <Loader2 size={18} className="animate-spin" /> : <FileDown size={18} />}
+              {isImporting ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
             </button>
-            <button
-              onClick={() => {
-                setSongTitle('');
-                setSongSections([{ id: 'initial', label: 'Verse 1', text: '' }]);
-                setEditingSongId(null);
-                setIsSongModalOpen(true);
-              }}
-              className="text-muted-foreground hover:text-rose-400 transition-colors p-1 text-xs font-semibold flex items-center gap-1"
-              title="Add Custom Song"
-            >
-              + ADD
-            </button>
-          </div>
-        ) : null}
+          ) : activeTab === 'songs' ? (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleImportSongsXML}
+                disabled={isImportingXML}
+                className="text-muted-foreground hover:text-blue-400 transition-colors p-1"
+                title="Import Veritas Songs XML"
+              >
+                {isImportingXML ? <Loader2 size={18} className="animate-spin" /> : <FileDown size={18} />}
+              </button>
+              <button
+                onClick={() => {
+                  setSongTitle('');
+                  setSongSections([{ id: 'initial', label: 'Verse 1', text: '' }]);
+                  setEditingSongId(null);
+                  setIsSongModalOpen(true);
+                }}
+                className="text-muted-foreground hover:text-rose-400 transition-colors p-1 text-xs font-semibold flex items-center gap-1"
+                title="Add Custom Song"
+              >
+                + ADD
+              </button>
+            </div>
+          ) : null}
+        </div>
       </div>
 
       {importNameModalOpen && (

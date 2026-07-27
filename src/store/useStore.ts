@@ -52,6 +52,7 @@ export interface SlideState {
   theme: ThemeConfig;
   playlist?: Verse[];
   slideIndex?: number | null;
+  history?: HistoryItem[];
 }
 
 export interface ItemState {
@@ -61,7 +62,7 @@ export interface ItemState {
   title: string;
 }
 
-interface StoreState extends SlideState {
+export interface StoreState extends SlideState {
   activeTab: 'bibles' | 'songs' | 'history' | 'import';
   setActiveTab: (tab: 'bibles' | 'songs' | 'history' | 'import') => void;
 

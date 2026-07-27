@@ -2,7 +2,6 @@ import { useStore } from '../store/useStore';
 import { useTauriSync } from '../hooks/useTauriSync';
 import { clsx } from 'clsx';
 import { useLayoutEffect, useEffect, useRef } from 'react';
-import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 
 export default function Projector({ isPreview = false }: { isPreview?: boolean }) {
   // Sync state as a projector (listen only) if not in preview mode
@@ -37,10 +36,26 @@ export default function Projector({ isPreview = false }: { isPreview?: boolean }
       if (e.key === 'Escape') {
         e.preventDefault();
         try {
-          const win = getCurrentWebviewWindow();
-          await win.close();
+          const { invoke } = await import('@tauri-apps/api/core');
+          await invoke('close_projector_window');
         } catch (err) {
-          console.error("Failed to close window", err);
+          console.error("Failed to hide window", err);
+        }
+      } else if (['ArrowRight', 'ArrowDown', 'PageDown'].includes(e.key)) {
+        e.preventDefault();
+        try {
+          const { emit } = await import('@tauri-apps/api/event');
+          await emit('remote_action', { action: 'next' });
+        } catch (err) {
+          console.error("Failed to emit next", err);
+        }
+      } else if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(e.key)) {
+        e.preventDefault();
+        try {
+          const { emit } = await import('@tauri-apps/api/event');
+          await emit('remote_action', { action: 'prev' });
+        } catch (err) {
+          console.error("Failed to emit prev", err);
         }
       }
     };
@@ -113,7 +128,7 @@ export default function Projector({ isPreview = false }: { isPreview?: boolean }
       <div
         className="absolute inset-0"
         style={{
-          backgroundImage: theme?.bgType === 'image' && theme.bgValue ? `url(${theme.bgValue})` : 'none',
+          backgroundImage: theme?.bgType === 'image' && theme.bgValue ? `url("${theme.bgValue.replace(/"/g, '\\"')}")` : 'none',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundColor: theme?.bgType === 'color' ? theme.bgValue : '#000000',

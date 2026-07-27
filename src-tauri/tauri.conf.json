@@ -18,6 +18,14 @@
         "height": 768,
         "minWidth": 1024,
         "minHeight": 768
+      },
+      {
+        "label": "projector",
+        "title": "Veritas Projector",
+        "url": "index.html#/projector",
+        "visible": false,
+        "decorations": false,
+        "alwaysOnTop": true
       }
     ],
     "security": {

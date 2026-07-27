@@ -180,7 +180,7 @@ export default function RightPane() {
             {/* Background Settings Card */}
             <div className="bg-background/50 border border-border/50 rounded-lg p-3 space-y-3">
               <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Background</h4>
-              
+
               <div className="space-y-2">
                 <select
                   className="w-full h-9 bg-background border border-border rounded px-2 text-sm text-foreground focus:outline-none focus:border-blue-500"
@@ -252,7 +252,7 @@ export default function RightPane() {
                         className="w-full accent-blue-500 cursor-pointer"
                       />
                     </div>
-                    
+
                     <div className="space-y-1.5">
                       <div className="flex justify-between items-center">
                         <label className="text-[10px] font-medium text-muted-foreground">Blur</label>
@@ -284,7 +284,7 @@ export default function RightPane() {
             {/* Typography Settings Card */}
             <div className="bg-background/50 border border-border/50 rounded-lg p-3 space-y-3">
               <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Typography</h4>
-              
+
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-medium text-muted-foreground">Primary Font</label>
@@ -297,6 +297,12 @@ export default function RightPane() {
                     <option value="sans-serif">Sans Serif</option>
                     <option value="ui-sans-serif, system-ui, sans-serif">System</option>
                     <option value="monospace">Monospace</option>
+                    <option value="'Playfair Display', serif">Playfair Display (Premium)</option>
+                    <option value="'Montserrat', sans-serif">Montserrat (Premium)</option>
+                    <option value="'Outfit', sans-serif">Outfit (Premium)</option>
+                    <option value="'Poppins', sans-serif">Poppins (Premium)</option>
+                    <option value="'Hind', sans-serif">Hind (Hindi Premium)</option>
+                    <option value="'Tiro Devanagari Hindi', serif">Tiro Devanagari (Hindi Premium)</option>
                     <option value="'Inter', sans-serif">Inter</option>
                     <option value="'Noto Sans', sans-serif">Noto Sans</option>
                     <option value="'Baloo 2', sans-serif">Baloo</option>
@@ -314,6 +320,12 @@ export default function RightPane() {
                     <option value="sans-serif">Sans Serif</option>
                     <option value="ui-sans-serif, system-ui, sans-serif">System</option>
                     <option value="monospace">Monospace</option>
+                    <option value="'Playfair Display', serif">Playfair Display (Premium)</option>
+                    <option value="'Montserrat', sans-serif">Montserrat (Premium)</option>
+                    <option value="'Outfit', sans-serif">Outfit (Premium)</option>
+                    <option value="'Poppins', sans-serif">Poppins (Premium)</option>
+                    <option value="'Hind', sans-serif">Hind (Hindi Premium)</option>
+                    <option value="'Tiro Devanagari Hindi', serif">Tiro Devanagari (Hindi Premium)</option>
                     <option value="'Inter', sans-serif">Inter</option>
                     <option value="'Noto Sans', sans-serif">Noto Sans</option>
                     <option value="'Baloo 2', sans-serif">Baloo</option>
@@ -373,7 +385,7 @@ export default function RightPane() {
             {/* Layout Card */}
             <div className="bg-background/50 border border-border/50 rounded-lg p-3 space-y-3">
               <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Layout</h4>
-              
+
               <div className="space-y-1.5">
                 <label className="text-[10px] font-medium text-muted-foreground">Alignment</label>
                 <div className="flex bg-background border border-border rounded overflow-hidden h-8">
@@ -443,7 +455,7 @@ export default function RightPane() {
             {/* Effects Card */}
             <div className="bg-background/50 border border-border/50 rounded-lg p-3 space-y-3">
               <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Effects</h4>
-              
+
               <div className="space-y-1.5">
                 <label className="text-[10px] font-medium text-muted-foreground">Shadow / Outline</label>
                 <select

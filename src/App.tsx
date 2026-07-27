@@ -13,6 +13,16 @@ function App() {
   const goToNextSlide = useStore(state => state.goToNextSlide);
   const goToPrevSlide = useStore(state => state.goToPrevSlide);
 
+  // Theme initialization
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('veritas_themeMode') || 'dark';
+    if (savedTheme === 'light') {
+      document.documentElement.classList.remove('dark');
+    } else {
+      document.documentElement.classList.add('dark');
+    }
+  }, []);
+
   // Auto-launch the projector window on startup
   useEffect(() => {
     (async () => {

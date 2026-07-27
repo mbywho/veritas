@@ -21,6 +21,7 @@ export function useTauriSync(isProjector: boolean = false) {
         theme: state.theme,
         playlist: activeItem.verses,
         slideIndex: activeItem.slideIndex,
+        history: state.history,
       };
     })
   );
@@ -54,6 +55,7 @@ export function useTauriSync(isProjector: boolean = false) {
       theme: stateToSync.theme,
       playlist: stateToSync.playlist,
       slideIndex: stateToSync.slideIndex,
+      history: stateToSync.history,
     };
 
     // Listen for new projectors coming online
@@ -80,6 +82,7 @@ export function useTauriSync(isProjector: boolean = false) {
       theme: stateToSync.theme,
       playlist: stateToSync.playlist,
       slideIndex: stateToSync.slideIndex,
+      history: stateToSync.history,
     };
 
     // Emit to all Tauri windows (Projector)
@@ -97,6 +100,7 @@ export function useTauriSync(isProjector: boolean = false) {
     stateToSync.theme,
     stateToSync.playlist,
     stateToSync.slideIndex,
+    stateToSync.history,
     isProjector
   ]);
 }

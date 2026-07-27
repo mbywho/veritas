@@ -4,12 +4,11 @@ import { useEffect, useRef, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import { bookTranslationMap } from '../../utils/bibleMap';
-// Removed buggy native dialog imports
+import { confirm, message } from '@tauri-apps/plugin-dialog';
 import { emit } from '@tauri-apps/api/event';
+import { useShallow } from 'zustand/react/shallow';
+import { StoreState, useStore, Verse } from '../../store/useStore';
 import { parseBibleReference } from '../../utils/bibleParser';
-import { useStore, Verse } from '../../store/useStore';
-import Console from "../Console";
-
 
 export default function CenterPane() {
   const activeTab = useStore((state) => state.activeTab);
@@ -22,8 +21,11 @@ export default function CenterPane() {
   const activeItemTitle = activeItem.title;
   const activeItemType = isBible ? 'bible' : 'song';
 
-  const setActiveSlideIndex = useStore((state) => state.setActiveSlideIndex);
-  const setSlideText = useStore((state) => state.setSlideText);
+  const { setActiveSlideIndex, setSlideText, theme } = useStore(useShallow((state: StoreState) => ({
+    setActiveSlideIndex: state.setActiveSlideIndex,
+    setSlideText: state.setSlideText,
+    theme: state.theme
+  })));
 
   const activeItemRef = useRef<HTMLDivElement>(null);
 
@@ -36,21 +38,17 @@ export default function CenterPane() {
   ]);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Resizable console state
-  const [consoleHeight, setConsoleHeight] = useState(192);
-  const [isDraggingConsole, setIsDraggingConsole] = useState(false);
-
   const handleDeleteSong = async () => {
     if (!activeItemId) return;
 
-    const yes = window.confirm("Are you sure you want to delete this song?");
+    const yes = await confirm("Are you sure you want to delete this song?", { title: 'Delete Song', kind: 'warning' });
     if (yes) {
       try {
         await invoke('delete_song', { songId: activeItemId });
         useStore.getState().setActiveVerses([], 'song', null, '');
       } catch (err) {
         console.error(err);
-        alert("Failed to delete song.");
+        await message("Failed to delete song.", { title: 'Error', kind: 'error' });
       }
     }
   };
@@ -78,8 +76,6 @@ export default function CenterPane() {
   };
 
   const handleUpdateSong = async () => {
-    console.log("STEP 1: Function started");
-
     let compiledText = "";
     if (isRawTextMode) {
       compiledText = rawSongText;
@@ -89,38 +85,21 @@ export default function CenterPane() {
         .map(s => `[${s.label}]\n${s.text.trim()}`)
         .join('\n\n');
     }
-    console.log("STEP 2: Text compiled");
 
     if (!editTitle.trim() || !compiledText.trim()) {
-      console.log("STEP 3: Failed validation (Title or lyrics empty)");
-      alert("Title and Lyrics are required.");
+      await message("Title and Lyrics are required.", { title: 'Required', kind: 'warning' });
       return;
     }
-    console.log("STEP 3: Title and lyrics validated");
 
-    if (!activeItemId) {
-      console.log("STEP 4: ABORTED - activeItemId is null or undefined!", activeItemId);
-      return;
-    }
-    console.log("STEP 4: activeItemId verified:", activeItemId);
+    if (!activeItemId) return;
 
     try {
       setIsSaving(true);
-      console.log("STEP 5: About to invoke Rust backend 'update_song'");
-
-      await invoke('update_song', {
-        songId: activeItemId,
-        title: editTitle,
-        text: compiledText
-      });
-
-      console.log("STEP 6: Rust backend successfully responded!");
-
+      await invoke('update_song', { songId: activeItemId, title: editTitle, text: compiledText });
       setIsSaving(false);
       setIsEditModalOpen(false);
       await emit('song-updated');
 
-      // Reload verses
       const lyrics = await invoke<{ id: number, song_id: number, verse_order: number, text: string }[]>('get_song_lyrics', { songId: activeItemId });
       const mappedVerses: Verse[] = lyrics.map(l => ({
         id: l.id,
@@ -133,13 +112,23 @@ export default function CenterPane() {
       }));
       useStore.getState().setActiveVerses(mappedVerses, 'song', activeItemId, editTitle);
     } catch (err) {
-      console.error("STEP 6 ERROR:", err);
+      console.error(err);
       setIsSaving(false);
-      alert("Failed to update song");
+      await message("Failed to update song", { title: 'Error', kind: 'error' });
     }
   };
 
   const cleanText = (t: string) => t.replace(/^\[.*?\]\s*\n/, '');
+
+  const ensureProjectorIsOpen = async () => {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const targetMonitor = localStorage.getItem('veritas_projectorMonitor') || '';
+      await invoke('launch_projector_window', { monitorName: targetMonitor });
+    } catch (e) {
+      console.error("Failed to ensure projector is open", e);
+    }
+  };
 
   const handleSlideClick = (index: number, verse: Verse) => {
     setActiveSlideIndex(index);
@@ -155,6 +144,7 @@ export default function CenterPane() {
       const secondaryText = verse.secondary_text ? cleanText(verse.secondary_text) : undefined;
       setSlideText(primaryText, secondaryText, activeItemTitle, 'song');
     }
+    ensureProjectorIsOpen();
   };
 
 
@@ -166,7 +156,6 @@ export default function CenterPane() {
 
   useEffect(() => {
     const unlisten = listen<any>('remote_action', (event) => {
-      console.log('Received remote action:', event.payload);
       let payload: any = event.payload;
       if (typeof payload === 'string') {
         try {
@@ -181,10 +170,21 @@ export default function CenterPane() {
 
       if (action === 'clear') {
         state.toggleBlackout();
+      } else if (action === 'set_theme') {
+        if (payload.theme) {
+          state.setTheme(payload.theme);
+        }
+      } else if (action === 'play_history_item') {
+        if (payload.item) {
+          state.setSlideText(payload.item.text, payload.item.subtext, payload.item.reference, undefined);
+          ensureProjectorIsOpen();
+        }
       } else if (action === 'next') {
         state.goToNextSlide();
+        ensureProjectorIsOpen();
       } else if (action === 'prev') {
         state.goToPrevSlide();
+        ensureProjectorIsOpen();
       } else if (action === 'go_to_slide') {
         state.setActiveSlideIndex(payload.index);
         const activeItem = state.activeTab === 'bibles' ? state.bibleState : state.songState;
@@ -199,6 +199,7 @@ export default function CenterPane() {
           const primaryText = cleanText(verse.text);
           const secondaryText = verse.secondary_text ? cleanText(verse.secondary_text) : undefined;
           state.setSlideText(primaryText, secondaryText, title, state.activeTab === 'bibles' ? 'bible' : 'song');
+          ensureProjectorIsOpen();
         }
       } else if (action === 'get_state') {
         const activeItem = state.activeTab === 'bibles' ? state.bibleState : state.songState;
@@ -340,31 +341,6 @@ export default function CenterPane() {
       unlisten.then(fn => fn());
     };
   }, []);
-
-  // Handle the console dragging mechanics
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isDraggingConsole) return;
-      const newHeight = window.innerHeight - e.clientY;
-      if (newHeight > 50 && newHeight < window.innerHeight * 0.8) {
-        setConsoleHeight(newHeight);
-      }
-    };
-
-    const handleMouseUp = () => {
-      setIsDraggingConsole(false);
-    };
-
-    if (isDraggingConsole) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-    }
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isDraggingConsole]);
 
   return (
     <div className="flex-1 h-full bg-background flex flex-col relative overflow-hidden">
@@ -567,13 +543,13 @@ export default function CenterPane() {
                       )}>
                         {verse.verse_num}
                       </span>
-                      <div className="flex flex-col">
-                        <p className="font-medium">{verse.text}</p>
+                      <div className="flex flex-col flex-1">
+                        <p className="font-bold text-lg leading-relaxed text-foreground" style={{ fontFamily: theme.mainFontFamily }}>{verse.text}</p>
                         {verse.secondary_text && (
                           <p className={clsx(
-                            "text-sm mt-1",
+                            "text-base mt-2 font-semibold leading-relaxed",
                             isActive ? "text-blue-700" : "text-muted-foreground"
-                          )}>
+                          )} style={{ fontFamily: theme.subFontFamily }}>
                             {verse.secondary_text}
                           </p>
                         )}
@@ -585,11 +561,9 @@ export default function CenterPane() {
             ) : (
               activeVerses.map((verse, index) => {
                 const isActive = activeSlideIndex === index;
-                let label = `Verse ${verse.verse_num}`;
                 let text = verse.text;
                 const match = text.match(/^\[(.*?)\]\s*\n/);
                 if (match) {
-                  label = match[1];
                   text = text.replace(/^\[.*?\]\s*\n/, '');
                 }
 
@@ -606,12 +580,6 @@ export default function CenterPane() {
                     )}
                   >
                     <div className="flex flex-col gap-2">
-                      <span className={clsx(
-                        "text-xs font-bold uppercase tracking-wider",
-                        isActive ? "text-blue-400" : "text-muted-foreground"
-                      )}>
-                        {label}
-                      </span>
                       <p className="font-medium whitespace-pre-wrap">{text}</p>
                     </div>
                   </div>
@@ -624,27 +592,6 @@ export default function CenterPane() {
 
       {/* Background decoration */}
       <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 pointer-events-none" />
-
-      {/* Resizable Embedded Console Component */}
-      <div
-        style={{ height: `${consoleHeight}px` }}
-        className={clsx(
-          "relative border-t border-slate-700 flex flex-col shrink-0",
-          isDraggingConsole && "select-none"
-        )}
-      >
-        <div
-          onMouseDown={(e) => {
-            e.preventDefault();
-            setIsDraggingConsole(true);
-          }}
-          className="absolute top-0 left-0 right-0 h-3 -mt-1.5 cursor-ns-resize z-50 hover:bg-blue-500/50 transition-colors"
-        />
-
-        <div className="flex-1 overflow-hidden">
-          <Console />
-        </div>
-      </div>
     </div>
   );
 }

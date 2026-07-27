@@ -5,7 +5,7 @@ pub mod server;
 use rusqlite::Connection;
 use serde::Serialize;
 use std::sync::Mutex;
-use tauri::{Emitter, Manager, State};
+use tauri::{Emitter, State};
 
 pub struct AppState {
     pub db: Mutex<Connection>,
@@ -495,37 +495,60 @@ fn import_custom_song(
     title: String,
     text: String,
 ) -> Result<String, String> {
-    let conn = state.db.lock().unwrap_or_else(|p| p.into_inner());
+    println!("RUST DEBUG: Entered import_custom_song");
+    println!(
+        "RUST DEBUG: Title: '{}', Text length: {}",
+        title,
+        text.len()
+    );
+
+    println!("RUST DEBUG: Attempting to lock database...");
+    let conn = state.db.lock().unwrap_or_else(|p| {
+        println!("RUST DEBUG: Database mutex was poisoned, recovering...");
+        p.into_inner()
+    });
+    println!("RUST DEBUG: Database lock acquired successfully.");
 
     let trimmed_title = title.trim();
     if trimmed_title.is_empty() {
         return Err("Song title cannot be empty".to_string());
     }
 
-    // Insert song directly without duplicate restrictions
+    println!("RUST DEBUG: Executing INSERT into Songs...");
     conn.execute(
         "INSERT INTO Songs (title, category) VALUES (?1, ?2)",
         rusqlite::params![trimmed_title, "Custom"],
     )
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| {
+        println!("RUST DEBUG SQL ERROR: {}", e);
+        e.to_string()
+    })?;
 
     let song_id = conn.last_insert_rowid();
+    println!("RUST DEBUG: Inserted song with ID: {}", song_id);
 
-    // Split text by blank lines to get stanzas
     let stanzas: Vec<&str> = text.split("\n\n").collect();
+    println!("RUST DEBUG: Split text into {} stanzas", stanzas.len());
 
     let mut stmt = conn
         .prepare("INSERT INTO SongVerses (song_id, verse_order, text) VALUES (?1, ?2, ?3)")
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| {
+            println!("RUST DEBUG PREPARE ERROR: {}", e);
+            e.to_string()
+        })?;
 
     for (i, stanza) in stanzas.iter().enumerate() {
         let trimmed = stanza.trim();
         if !trimmed.is_empty() {
             stmt.execute(rusqlite::params![song_id, (i + 1) as i64, trimmed])
-                .map_err(|e| e.to_string())?;
+                .map_err(|e| {
+                    println!("RUST DEBUG STANZAS ERROR: {}", e);
+                    e.to_string()
+                })?;
         }
     }
 
+    println!("RUST DEBUG: Successfully completed import_custom_song");
     Ok("Song imported successfully".to_string())
 }
 
@@ -733,57 +756,42 @@ fn launch_projector_window(
     app_handle: tauri::AppHandle,
     monitor_name: String,
 ) -> Result<(), String> {
-    use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+    use tauri::Manager;
     let monitors = app_handle.available_monitors().map_err(|e| e.to_string())?;
     let is_single_monitor = monitors.len() == 1;
     let target_monitor = monitors
         .into_iter()
-        .find(|m| m.name() == Some(&monitor_name));
+        .find(|m| m.name() == Some(&monitor_name))
+        .or_else(|| app_handle.primary_monitor().unwrap_or(None));
 
     if let Some(monitor) = target_monitor {
         if let Some(window) = app_handle.get_webview_window("projector") {
-            let _ = window.set_position(tauri::Position::Physical(*monitor.position()));
-            let _ = window.set_size(tauri::Size::Physical(*monitor.size()));
+            // If already visible, do not re-apply fullscreen as it causes stuttering/glitches
+            if window.is_visible().unwrap_or(false) {
+                return Ok(());
+            }
+
+            // Un-fullscreen temporarily to allow safe monitor movement
+            let _ = window.set_fullscreen(false);
+
+            if is_single_monitor {
+                let _ = window.set_decorations(false);
+                let _ = window.set_always_on_top(false);
+                let _ = window.set_fullscreen(true);
+            } else {
+                let _ = window.set_decorations(false);
+                let _ = window.set_always_on_top(true);
+                let _ = window.set_position(tauri::Position::Physical(*monitor.position()));
+                let _ = window.set_size(tauri::Size::Physical(*monitor.size()));
+                // Apply true fullscreen to completely bypass taskbar
+                let _ = window.set_fullscreen(true);
+            }
+
             window.show().map_err(|e| e.to_string())?;
             window.set_focus().map_err(|e| e.to_string())?;
             return Ok(());
         }
-
-        #[allow(unused_mut)]
-        let mut builder = WebviewWindowBuilder::new(
-            &app_handle,
-            "projector",
-            WebviewUrl::App("#/projector".into()),
-        )
-        .title("Veritas Projector")
-        .visible(false); // Build hidden so we can manually size it safely
-
-        if is_single_monitor {
-            builder = builder
-                .decorations(true)
-                .always_on_top(false)
-                .inner_size(800.0, 450.0)
-                .center();
-        } else {
-            builder = builder.decorations(false).always_on_top(true);
-
-            #[cfg(target_os = "windows")]
-            {
-                builder = builder.fullscreen(true);
-            }
-        }
-
-        let window = builder.build().map_err(|e| e.to_string())?;
-
-        if !is_single_monitor {
-            let _ = window.set_position(tauri::Position::Physical(*monitor.position()));
-            let _ = window.set_size(tauri::Size::Physical(*monitor.size()));
-        }
-
-        let _ = window.show();
-        let _ = window.set_focus();
-
-        Ok(())
+        Err("Projector window not found in config".to_string())
     } else {
         Err(format!("Monitor '{}' not found", monitor_name))
     }
@@ -793,7 +801,7 @@ fn launch_projector_window(
 fn close_projector_window(app_handle: tauri::AppHandle) -> Result<(), String> {
     use tauri::Manager;
     if let Some(window) = app_handle.get_webview_window("projector") {
-        window.close().map_err(|e| e.to_string())?;
+        window.hide().map_err(|e| e.to_string())?;
     }
     Ok(())
 }
@@ -842,6 +850,16 @@ pub fn run() {
     use tauri_plugin_log::{Target, TargetKind};
 
     tauri::Builder::default()
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                if window.label() == "main" {
+                    std::process::exit(0);
+                } else if window.label() == "projector" {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
+            }
+        })
         .plugin(
             tauri_plugin_log::Builder::new()
                 .target(Target::new(TargetKind::Webview))
@@ -883,14 +901,6 @@ pub fn run() {
 
             println!("Step 2");
 
-            // Automatically open the DevTools console window for debugging
-            #[cfg(debug_assertions)]
-            {
-                if let Some(window) = app.get_webview_window("main") {
-                    window.open_devtools();
-                }
-            }
-
             println!("Step 3");
 
             // Initialize database
@@ -901,22 +911,29 @@ pub fn run() {
             // Initialize broadcast channel for WebSockets
             let (tx, _rx) = tokio::sync::broadcast::channel(100);
 
+            // OS specific window sizing for main window
+            use tauri::Manager;
+            if let Some(main_window) = app.get_webview_window("main") {
+                #[cfg(target_os = "windows")]
+                {
+                    let _ = main_window.maximize();
+                }
+                #[cfg(target_os = "macos")]
+                {
+                    let _ = main_window.set_fullscreen(true);
+                }
+            }
+
             app.manage(AppState {
                 db: Mutex::new(conn),
                 broadcast_tx: tx.clone(),
             });
 
-            // Use watch channel for cloneable shutdown signal
-            let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(());
-
             // Spawn the Axum server
             let app_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
-                server::start_server(app_handle, tx, shutdown_rx).await;
+                server::start_server(app_handle, tx).await;
             });
-
-            // Wait, we can remove the window close event listener here since we will handle it in .run()
-
 
             Ok(())
         })
@@ -944,15 +961,6 @@ pub fn run() {
             get_local_ip,
             open_console_window
         ])
-        .build(tauri::generate_context!())
-        .expect("error while building tauri application")
-        .run(|_app_handle, event| {
-            match event {
-                tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit => {
-                    // Force exit process to release db lock and clean up Tokios
-                    std::process::exit(0);
-                }
-                _ => {}
-            }
-        });
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
 }
