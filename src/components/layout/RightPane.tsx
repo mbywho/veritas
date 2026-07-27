@@ -366,7 +366,7 @@ export default function RightPane() {
                   <input
                     type="number" min="10" max="200"
                     value={theme.mainFontSize ?? 70}
-                    onChange={(e) => setTheme({ mainFontSize: parseInt(e.target.value) || 90 })}
+                    onChange={(e) => setTheme({ mainFontSize: parseInt(e.target.value) || 70 })}
                     className="w-12 bg-transparent text-right text-xs focus:outline-none"
                   />
                 </div>
@@ -375,7 +375,7 @@ export default function RightPane() {
                   <input
                     type="number" min="10" max="200"
                     value={theme.subFontSize ?? 70}
-                    onChange={(e) => setTheme({ subFontSize: parseInt(e.target.value) || 60 })}
+                    onChange={(e) => setTheme({ subFontSize: parseInt(e.target.value) || 70 })}
                     className="w-12 bg-transparent text-right text-xs focus:outline-none"
                   />
                 </div>

@@ -756,7 +756,7 @@ fn launch_projector_window(
     app_handle: tauri::AppHandle,
     monitor_name: String,
 ) -> Result<(), String> {
-    use tauri::Manager;
+    use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
     let monitors = app_handle.available_monitors().map_err(|e| e.to_string())?;
     let is_single_monitor = monitors.len() == 1;
     let target_monitor = monitors
@@ -765,33 +765,50 @@ fn launch_projector_window(
         .or_else(|| app_handle.primary_monitor().unwrap_or(None));
 
     if let Some(monitor) = target_monitor {
-        if let Some(window) = app_handle.get_webview_window("projector") {
-            // If already visible, do not re-apply fullscreen as it causes stuttering/glitches
-            if window.is_visible().unwrap_or(false) {
-                return Ok(());
-            }
+        // Find existing or create new
+        let window = if let Some(window) = app_handle.get_webview_window("projector") {
+            window
+        } else {
+            let builder = WebviewWindowBuilder::new(
+                &app_handle,
+                "projector",
+                WebviewUrl::App("index.html#/projector".into()),
+            )
+            .title("Veritas Projector")
+            .decorations(false)
+            .minimizable(false)
+            .always_on_top(true)
+            .visible(false);
 
-            // Un-fullscreen temporarily to allow safe monitor movement
-            let _ = window.set_fullscreen(false);
+            builder.build().map_err(|e| e.to_string())?
+        };
 
-            if is_single_monitor {
-                let _ = window.set_decorations(false);
-                let _ = window.set_always_on_top(false);
-                let _ = window.set_fullscreen(true);
-            } else {
-                let _ = window.set_decorations(false);
-                let _ = window.set_always_on_top(true);
-                let _ = window.set_position(tauri::Position::Physical(*monitor.position()));
-                let _ = window.set_size(tauri::Size::Physical(*monitor.size()));
-                // Apply true fullscreen to completely bypass taskbar
-                let _ = window.set_fullscreen(true);
-            }
-
-            window.show().map_err(|e| e.to_string())?;
-            window.set_focus().map_err(|e| e.to_string())?;
+        if window.is_visible().unwrap_or(false) {
             return Ok(());
         }
-        Err("Projector window not found in config".to_string())
+
+        let _ = window.set_fullscreen(false);
+
+        if is_single_monitor {
+            let _ = window.set_decorations(false);
+            let _ = window.set_always_on_top(false);
+            let _ = window.set_fullscreen(true);
+        } else {
+            let _ = window.set_decorations(false);
+            let _ = window.set_always_on_top(true);
+            let _ = window.set_position(tauri::Position::Physical(*monitor.position()));
+            let _ = window.set_size(tauri::Size::Physical(*monitor.size()));
+            #[cfg(not(target_os = "macos"))]
+            let _ = window.set_fullscreen(true);
+        }
+
+        // Explicitly disable minimizing and maximizing to prevent macOS traffic lights/shortcuts
+        let _ = window.set_minimizable(false);
+        let _ = window.set_maximizable(false);
+
+        window.show().map_err(|e| e.to_string())?;
+        window.set_focus().map_err(|e| e.to_string())?;
+        return Ok(());
     } else {
         Err(format!("Monitor '{}' not found", monitor_name))
     }
@@ -801,7 +818,15 @@ fn launch_projector_window(
 fn close_projector_window(app_handle: tauri::AppHandle) -> Result<(), String> {
     use tauri::Manager;
     if let Some(window) = app_handle.get_webview_window("projector") {
-        window.hide().map_err(|e| e.to_string())?;
+        #[cfg(target_os = "macos")]
+        {
+            let _ = window.set_fullscreen(false);
+            window.close().map_err(|e| e.to_string())?;
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            window.hide().map_err(|e| e.to_string())?;
+        }
     }
     Ok(())
 }

@@ -86,8 +86,8 @@ const defaultTheme: ThemeConfig = {
   bgValue: '#000000',
   mainFontFamily: 'serif',
   subFontFamily: 'serif',
-  mainFontSize: 90,
-  subFontSize: 60,
+  mainFontSize: 70,
+  subFontSize: 70,
   fontColor: '#ffffff',
   textShadow: '0 4px 12px rgba(0,0,0,0.8)',
   textAlign: 'center',
@@ -143,7 +143,7 @@ export const useStore = create<StoreState>((set) => ({
       if (!isDuplicate) {
         let historyToKeep = newHistory;
         const matchingItems = newHistory.filter(h => h.reference === title && h.text === text && h.subtext === subtext);
-        
+
         // If it already appears 3 or more times, remove the oldest occurrences so we only keep the 2 most recent ones (making room for the new 3rd one)
         if (matchingItems.length >= 3) {
           const idsToKeep = matchingItems.slice(0, 2).map(h => h.id);
@@ -209,37 +209,35 @@ export const useStore = create<StoreState>((set) => ({
   goToNextSlide: () => set((state) => {
     const isBible = state.activeTab === 'bibles';
     const activeItem = isBible ? state.bibleState : state.songState;
-    
+
     if (activeItem.verses.length === 0 || activeItem.slideIndex === null) return state;
+
+    const nextIndex = (activeItem.slideIndex + 1) % activeItem.verses.length;
     
-    const nextIndex = activeItem.slideIndex + 1;
-    if (nextIndex < activeItem.verses.length) {
-      const v = activeItem.verses[nextIndex];
-      let title = activeItem.title;
-      
-      if (isBible) {
-        const englishBook = v.book_name;
-        const hindiBook = bookTranslationMap[englishBook] || englishBook;
-        title = `${hindiBook} (${englishBook}) ${v.chapter}:${v.verse_num}`;
-      }
+    const v = activeItem.verses[nextIndex];
+    let title = activeItem.title;
 
-      const newState: Partial<StoreState> = {
-        text: cleanText(v.text),
-        subtext: v.secondary_text ? cleanText(v.secondary_text) : undefined,
-        title: title,
-        contentType: isBible ? 'bible' : 'song',
-        isBlackout: false
-      };
-
-      if (isBible) {
-        newState.bibleState = { ...state.bibleState, slideIndex: nextIndex };
-      } else {
-        newState.songState = { ...state.songState, slideIndex: nextIndex };
-      }
-
-      return newState;
+    if (isBible) {
+      const englishBook = v.book_name;
+      const hindiBook = bookTranslationMap[englishBook] || englishBook;
+      title = `${hindiBook} (${englishBook}) ${v.chapter}:${v.verse_num}`;
     }
-    return state;
+
+    const newState: Partial<StoreState> = {
+      text: cleanText(v.text),
+      subtext: v.secondary_text ? cleanText(v.secondary_text) : undefined,
+      title: title,
+      contentType: isBible ? 'bible' : 'song',
+      isBlackout: false
+    };
+
+    if (isBible) {
+      newState.bibleState = { ...state.bibleState, slideIndex: nextIndex };
+    } else {
+      newState.songState = { ...state.songState, slideIndex: nextIndex };
+    }
+
+    return newState;
   }),
 
   goToPrevSlide: () => set((state) => {
@@ -247,35 +245,33 @@ export const useStore = create<StoreState>((set) => ({
     const activeItem = isBible ? state.bibleState : state.songState;
 
     if (activeItem.verses.length === 0 || activeItem.slideIndex === null) return state;
+
+    const prevIndex = (activeItem.slideIndex - 1 + activeItem.verses.length) % activeItem.verses.length;
     
-    const prevIndex = activeItem.slideIndex - 1;
-    if (prevIndex >= 0) {
-      const v = activeItem.verses[prevIndex];
-      let title = activeItem.title;
-      
-      if (isBible) {
-        const englishBook = v.book_name;
-        const hindiBook = bookTranslationMap[englishBook] || englishBook;
-        title = `${hindiBook} (${englishBook}) ${v.chapter}:${v.verse_num}`;
-      }
+    const v = activeItem.verses[prevIndex];
+    let title = activeItem.title;
 
-      const newState: Partial<StoreState> = {
-        text: cleanText(v.text),
-        subtext: v.secondary_text ? cleanText(v.secondary_text) : undefined,
-        title: title,
-        contentType: isBible ? 'bible' : 'song',
-        isBlackout: false
-      };
-
-      if (isBible) {
-        newState.bibleState = { ...state.bibleState, slideIndex: prevIndex };
-      } else {
-        newState.songState = { ...state.songState, slideIndex: prevIndex };
-      }
-
-      return newState;
+    if (isBible) {
+      const englishBook = v.book_name;
+      const hindiBook = bookTranslationMap[englishBook] || englishBook;
+      title = `${hindiBook} (${englishBook}) ${v.chapter}:${v.verse_num}`;
     }
-    return state;
+
+    const newState: Partial<StoreState> = {
+      text: cleanText(v.text),
+      subtext: v.secondary_text ? cleanText(v.secondary_text) : undefined,
+      title: title,
+      contentType: isBible ? 'bible' : 'song',
+      isBlackout: false
+    };
+
+    if (isBible) {
+      newState.bibleState = { ...state.bibleState, slideIndex: prevIndex };
+    } else {
+      newState.songState = { ...state.songState, slideIndex: prevIndex };
+    }
+
+    return newState;
   }),
 
 }));
