@@ -20,6 +20,7 @@ export default function RightPane() {
   const { isBlackout, theme, setTheme, toggleBlackout } = useStore();
 
   const [monitors, setMonitors] = useState<MonitorInfo[]>([]);
+  const [customFonts, setCustomFonts] = useState<{name: string; path: string}[]>([]);
   const [selectedMonitor, setSelectedMonitor] = useState<string>('');
   const [isQrOpen, setIsQrOpen] = useState(false);
 
@@ -30,7 +31,50 @@ export default function RightPane() {
         if (res.length > 0) setSelectedMonitor(res[0].name);
       })
       .catch(console.error);
+
+    invoke<{name: string; path: string}[]>('get_custom_fonts')
+      .then(setCustomFonts)
+      .catch(console.error);
   }, []);
+
+  const handleImportFont = async () => {
+    try {
+      const selected = await open({
+        multiple: false,
+        filters: [{ name: 'Fonts', extensions: ['ttf', 'otf'] }]
+      });
+      if (selected && typeof selected === 'string') {
+        const newFont = await invoke<{name: string; path: string}>('import_custom_font', { sourcePath: selected });
+        setCustomFonts(prev => {
+          if (!prev.find(f => f.name === newFont.name)) return [...prev, newFont];
+          return prev;
+        });
+        
+        // Also inject it dynamically into the current document so it works immediately without reload
+        const styleId = 'veritas-custom-fonts';
+        let styleEl = document.getElementById(styleId);
+        if (!styleEl) {
+          styleEl = document.createElement('style');
+          styleEl.id = styleId;
+          document.head.appendChild(styleEl);
+        }
+        
+        // Use convertFileSrc for the newly imported font
+        const { convertFileSrc } = await import('@tauri-apps/api/core');
+        styleEl.innerHTML += `
+          @font-face {
+            font-family: '${newFont.name}';
+            src: url('${convertFileSrc(newFont.path)}');
+          }
+        `;
+        
+        setTheme({ mainFontFamily: `'${newFont.name}', sans-serif` });
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Failed to import font.');
+    }
+  };
 
   const [previewScale, setPreviewScale] = useState(0.15);
   const previewWrapperRef = useRef<HTMLDivElement>(null);
@@ -290,49 +334,59 @@ export default function RightPane() {
                   <label className="text-[10px] font-medium text-muted-foreground">Primary Font</label>
                   <select
                     className="w-full h-8 bg-background border border-border rounded px-2 text-xs text-foreground focus:outline-none focus:border-blue-500"
-                    value={theme.mainFontFamily || 'serif'}
+                    value={theme.mainFontFamily || 'sans-serif'}
                     onChange={(e) => setTheme({ mainFontFamily: e.target.value })}
                   >
-                    <option value="serif">Serif (Default)</option>
                     <option value="sans-serif">Sans Serif</option>
                     <option value="ui-sans-serif, system-ui, sans-serif">System</option>
-                    <option value="monospace">Monospace</option>
-                    <option value="'Playfair Display', serif">Playfair Display (Premium)</option>
-                    <option value="'Montserrat', sans-serif">Montserrat (Premium)</option>
-                    <option value="'Outfit', sans-serif">Outfit (Premium)</option>
-                    <option value="'Poppins', sans-serif">Poppins (Premium)</option>
-                    <option value="'Hind', sans-serif">Hind (Hindi Premium)</option>
-                    <option value="'Tiro Devanagari Hindi', serif">Tiro Devanagari (Hindi Premium)</option>
+                    <option value="'Playfair Display', serif">Playfair Display</option>
+                    <option value="'Montserrat', sans-serif">Montserrat</option>
+                    <option value="'Outfit', sans-serif">Outfit</option>
+                    <option value="'Poppins', sans-serif">Poppins</option>
+                    <option value="'Hind', sans-serif">Hind</option>
+                    <option value="'Tiro Devanagari Hindi', serif">Tiro Devanagari</option>
                     <option value="'Inter', sans-serif">Inter</option>
                     <option value="'Noto Sans', sans-serif">Noto Sans</option>
                     <option value="'Baloo 2', sans-serif">Baloo</option>
                     <option value="'Georgia', serif">Georgia</option>
+                    {customFonts.map(f => (
+                      <option key={f.name} value={`'${f.name}', sans-serif`}>{f.name} (Custom)</option>
+                    ))}
                   </select>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-medium text-muted-foreground">Secondary Font</label>
                   <select
                     className="w-full h-8 bg-background border border-border rounded px-2 text-xs text-foreground focus:outline-none focus:border-blue-500"
-                    value={theme.subFontFamily || 'serif'}
+                    value={theme.subFontFamily || 'sans-serif'}
                     onChange={(e) => setTheme({ subFontFamily: e.target.value })}
                   >
-                    <option value="serif">Serif (Default)</option>
                     <option value="sans-serif">Sans Serif</option>
                     <option value="ui-sans-serif, system-ui, sans-serif">System</option>
-                    <option value="monospace">Monospace</option>
-                    <option value="'Playfair Display', serif">Playfair Display (Premium)</option>
-                    <option value="'Montserrat', sans-serif">Montserrat (Premium)</option>
-                    <option value="'Outfit', sans-serif">Outfit (Premium)</option>
-                    <option value="'Poppins', sans-serif">Poppins (Premium)</option>
-                    <option value="'Hind', sans-serif">Hind (Hindi Premium)</option>
-                    <option value="'Tiro Devanagari Hindi', serif">Tiro Devanagari (Hindi Premium)</option>
+                    <option value="'Playfair Display', serif">Playfair Display</option>
+                    <option value="'Montserrat', sans-serif">Montserrat</option>
+                    <option value="'Outfit', sans-serif">Outfit</option>
+                    <option value="'Poppins', sans-serif">Poppins</option>
+                    <option value="'Hind', sans-serif">Hind</option>
+                    <option value="'Tiro Devanagari Hindi', serif">Tiro Devanagari</option>
                     <option value="'Inter', sans-serif">Inter</option>
                     <option value="'Noto Sans', sans-serif">Noto Sans</option>
                     <option value="'Baloo 2', sans-serif">Baloo</option>
                     <option value="'Georgia', serif">Georgia</option>
+                    {customFonts.map(f => (
+                      <option key={f.name} value={`'${f.name}', sans-serif`}>{f.name} (Custom)</option>
+                    ))}
                   </select>
                 </div>
               </div>
+
+              <button
+                onClick={handleImportFont}
+                className="w-full mt-2 flex items-center justify-center gap-2 py-2 rounded-md bg-secondary text-foreground text-xs font-medium hover:bg-secondary/80 border border-border transition-colors"
+              >
+                <FolderOpen size={14} />
+                Import Custom Font...
+              </button>
 
               <div className="grid grid-cols-3 gap-2">
                 <div className="space-y-1.5 col-span-2">

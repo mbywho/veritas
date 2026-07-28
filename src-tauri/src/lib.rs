@@ -864,6 +864,69 @@ fn get_local_ip() -> Result<String, String> {
         .map_err(|e| format!("Failed to get local IP: {}", e))
 }
 
+#[derive(Serialize)]
+pub struct FontInfo {
+    pub name: String,
+    pub path: String,
+}
+
+#[tauri::command]
+fn get_custom_fonts(app_handle: tauri::AppHandle) -> Result<Vec<FontInfo>, String> {
+    use tauri::Manager;
+    let font_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?.join("fonts");
+    if !font_dir.exists() {
+        return Ok(Vec::new());
+    }
+
+    let mut fonts = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(font_dir) {
+        for entry in entries.flatten() {
+            if let Some(ext) = entry.path().extension().and_then(|e| e.to_str()) {
+                if ext.eq_ignore_ascii_case("ttf") || ext.eq_ignore_ascii_case("otf") {
+                    if let (Some(stem), Some(path_str)) = (
+                        entry.path().file_stem().and_then(|s| s.to_str()),
+                        entry.path().to_str()
+                    ) {
+                        fonts.push(FontInfo {
+                            name: stem.to_string(),
+                            path: path_str.to_string(),
+                        });
+                    }
+                }
+            }
+        }
+    }
+    Ok(fonts)
+}
+
+#[tauri::command]
+fn import_custom_font(app_handle: tauri::AppHandle, source_path: String) -> Result<FontInfo, String> {
+    use tauri::Manager;
+    let source = std::path::Path::new(&source_path);
+    if !source.exists() {
+        return Err("Font file not found".into());
+    }
+
+    let ext = source.extension().and_then(|e| e.to_str()).unwrap_or("");
+    if !ext.eq_ignore_ascii_case("ttf") && !ext.eq_ignore_ascii_case("otf") {
+        return Err("Only .ttf and .otf fonts are supported".into());
+    }
+
+    let font_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?.join("fonts");
+    std::fs::create_dir_all(&font_dir).map_err(|e| e.to_string())?;
+
+    let file_name = source.file_name().ok_or("Invalid file name")?;
+    let dest_path = font_dir.join(file_name);
+
+    std::fs::copy(&source, &dest_path).map_err(|e| e.to_string())?;
+
+    let stem = source.file_stem().and_then(|s| s.to_str()).unwrap_or("UnknownFont");
+    Ok(FontInfo {
+        name: stem.to_string(),
+        path: dest_path.to_string_lossy().to_string(),
+    })
+}
+
 #[derive(Clone, Serialize)]
 struct BackendLogPayload {
     r#type: String,
@@ -984,7 +1047,9 @@ pub fn run() {
             launch_projector_window,
             close_projector_window,
             get_local_ip,
-            open_console_window
+            open_console_window,
+            get_custom_fonts,
+            import_custom_font
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

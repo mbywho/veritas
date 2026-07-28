@@ -5,6 +5,7 @@ import { useTauriSync } from './hooks/useTauriSync';
 import { useStore } from './store/useStore';
 import { useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { convertFileSrc } from '@tauri-apps/api/core';
 
 function App() {
   // Sync state as control panel
@@ -21,6 +22,32 @@ function App() {
     } else {
       document.documentElement.classList.add('dark');
     }
+  }, []);
+
+  // Custom font injection
+  useEffect(() => {
+    (async () => {
+      try {
+        const fonts = await invoke<{ name: string; path: string }[]>('get_custom_fonts');
+        if (fonts.length > 0) {
+          const styleId = 'veritas-custom-fonts';
+          let styleEl = document.getElementById(styleId);
+          if (!styleEl) {
+            styleEl = document.createElement('style');
+            styleEl.id = styleId;
+            document.head.appendChild(styleEl);
+          }
+          styleEl.innerHTML = fonts.map(f => `
+            @font-face {
+              font-family: '${f.name}';
+              src: url('${convertFileSrc(f.path)}');
+            }
+          `).join('\n');
+        }
+      } catch (e) {
+        console.error("Failed to load custom fonts", e);
+      }
+    })();
   }, []);
 
   // Auto-launch the projector window on startup

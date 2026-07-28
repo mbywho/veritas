@@ -85,10 +85,10 @@
 
     <!-- Settings Modal -->
     <div id="settings-wrapper" class="modal-hidden">
-        <div id="settings-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm" onclick="toggleSettings()">
+        <div id="settings-modal" class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm" onclick="toggleSettings()">
         </div>
         <div id="settings-sheet"
-            class="fixed bottom-0 left-0 right-0 z-50 bg-zinc-950/95 backdrop-blur-xl border-t border-zinc-800/80 rounded-t-[2.5rem] p-6 pb-12 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] max-h-[85vh] flex flex-col">
+            class="fixed bottom-0 left-0 right-0 z-[100] bg-zinc-950/95 backdrop-blur-xl border-t border-zinc-800/80 rounded-t-[2.5rem] p-6 pb-12 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] max-h-[85vh] flex flex-col">
             <div class="w-12 h-1.5 bg-zinc-800 rounded-full mx-auto mb-6 shrink-0"></div>
 
             <div class="flex gap-2 bg-zinc-900 p-1 rounded-xl mb-6 shrink-0">
@@ -146,14 +146,47 @@
                         <label class="text-sm font-medium text-zinc-300 mb-2 block">Font Family</label>
                         <select id="input-font" onchange="updateTheme('mainFontFamily', this.value)"
                             class="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 text-white outline-none focus:border-blue-500">
-                            <option value="serif">Serif (Default)</option>
                             <option value="sans-serif">Sans Serif</option>
-                            <option value="'Playfair Display', serif">Playfair Display (Premium)</option>
-                            <option value="'Montserrat', sans-serif">Montserrat (Premium)</option>
-                            <option value="'Outfit', sans-serif">Outfit (Premium)</option>
-                            <option value="'Poppins', sans-serif">Poppins (Premium)</option>
-                            <option value="'Hind', sans-serif">Hind (Hindi Premium)</option>
+                            <option value="ui-sans-serif, system-ui, sans-serif">System</option>
+                            <option value="'Playfair Display', serif">Playfair Display</option>
+                            <option value="'Montserrat', sans-serif">Montserrat</option>
+                            <option value="'Outfit', sans-serif">Outfit</option>
+                            <option value="'Poppins', sans-serif">Poppins</option>
+                            <option value="'Hind', sans-serif">Hind</option>
+                            <option value="'Tiro Devanagari Hindi', serif">Tiro Devanagari</option>
+                            <option value="'Inter', sans-serif">Inter</option>
+                            <option value="'Noto Sans', sans-serif">Noto Sans</option>
+                            <option value="'Baloo 2', sans-serif">Baloo</option>
+                            <option value="'Georgia', serif">Georgia</option>
                         </select>
+                    </div>
+                    <div>
+                        <div class="flex justify-between mb-2"><label class="text-sm font-medium text-zinc-300">Padding</label><span id="val-padding" class="text-xs text-blue-400 font-mono"></span></div>
+                        <input type="range" id="input-padding" min="0" max="50"
+                            onchange="updateTheme('padding', parseInt(this.value))"
+                            oninput="document.getElementById('val-padding').innerText=this.value+'px'"
+                            class="w-full accent-blue-500">
+                    </div>
+                    <div>
+                        <div class="flex justify-between mb-2"><label class="text-sm font-medium text-zinc-300">Top Margin</label><span id="val-margin" class="text-xs text-blue-400 font-mono"></span></div>
+                        <input type="range" id="input-margin" min="-100" max="100"
+                            onchange="updateTheme('margin', parseInt(this.value))"
+                            oninput="document.getElementById('val-margin').innerText=this.value+'px'"
+                            class="w-full accent-blue-500">
+                    </div>
+                    <div>
+                        <div class="flex justify-between mb-2"><label class="text-sm font-medium text-zinc-300">Text Gap</label><span id="val-gap" class="text-xs text-blue-400 font-mono"></span></div>
+                        <input type="range" id="input-gap" min="-100" max="100"
+                            onchange="updateTheme('translationSpacing', parseInt(this.value))"
+                            oninput="document.getElementById('val-gap').innerText=this.value+'px'"
+                            class="w-full accent-blue-500">
+                    </div>
+                    <div>
+                        <div class="flex justify-between mb-2"><label class="text-sm font-medium text-zinc-300">Line Height</label><span id="val-lineheight" class="text-xs text-blue-400 font-mono"></span></div>
+                        <input type="range" id="input-lineheight" min="5" max="30" step="1"
+                            onchange="updateTheme('lineHeight', parseInt(this.value) / 10)"
+                            oninput="document.getElementById('val-lineheight').innerText=(parseInt(this.value)/10).toFixed(1)"
+                            class="w-full accent-blue-500">
                     </div>
                 </div>
             </div>
@@ -360,8 +393,27 @@
                         document.getElementById('val-fontsize').innerText = (data.theme.mainFontSize || 90) + 'px';
                         document.getElementById('input-subfontsize').value = data.theme.subFontSize || 40;
                         document.getElementById('val-subfontsize').innerText = (data.theme.subFontSize || 40) + 'px';
+                        
+                        document.getElementById('input-padding').value = data.theme.padding || 0;
+                        document.getElementById('val-padding').innerText = (data.theme.padding || 0) + 'px';
+                        document.getElementById('input-margin').value = data.theme.margin || 0;
+                        document.getElementById('val-margin').innerText = (data.theme.margin || 0) + 'px';
+                        document.getElementById('input-gap').value = data.theme.translationSpacing || 0;
+                        document.getElementById('val-gap').innerText = (data.theme.translationSpacing || 0) + 'px';
+                        document.getElementById('input-lineheight').value = (data.theme.lineHeight || 1.2) * 10;
+                        document.getElementById('val-lineheight').innerText = (data.theme.lineHeight || 1.2).toFixed(1);
+
                         document.getElementById('input-align').value = data.theme.textAlign || 'center';
-                        document.getElementById('input-font').value = data.theme.mainFontFamily || 'serif';
+                        
+                        // Set the value only if the option exists to avoid resetting custom fonts unexpectedly
+                        const fontSelect = document.getElementById('input-font');
+                        const fontValue = data.theme.mainFontFamily || 'sans-serif';
+                        let fontExists = Array.from(fontSelect.options).some(opt => opt.value === fontValue);
+                        if (!fontExists) {
+                            const newOpt = new Option(fontValue.replace(/'/g, '').split(',')[0] + ' (Custom)', fontValue);
+                            fontSelect.add(newOpt);
+                        }
+                        fontSelect.value = fontValue;
                     }
                 }
             };

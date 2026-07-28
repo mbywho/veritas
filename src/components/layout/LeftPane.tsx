@@ -1,4 +1,4 @@
-import { Search, Book, Download, Loader2, BookOpen, Music, Edit2, Trash2, Plus, History, Settings, FileDown, Sun, Moon } from 'lucide-react';
+import { Search, Book, Download, Loader2, BookOpen, Music, Edit2, Trash2, Plus, History, Settings, Sun, Moon } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useState, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
@@ -891,7 +891,7 @@ export default function LeftPane() {
                 className="text-muted-foreground hover:text-blue-400 transition-colors p-1"
                 title="Import Veritas Songs XML"
               >
-                {isImportingXML ? <Loader2 size={18} className="animate-spin" /> : <FileDown size={18} />}
+                {isImportingXML ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
               </button>
               <button
                 onClick={() => {
@@ -903,7 +903,7 @@ export default function LeftPane() {
                 className="text-muted-foreground hover:text-rose-400 transition-colors p-1 text-xs font-semibold flex items-center gap-1"
                 title="Add Custom Song"
               >
-                + ADD
+                <Plus size={16} strokeWidth={2} />
               </button>
             </div>
           ) : null}
