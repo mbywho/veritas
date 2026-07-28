@@ -20,7 +20,7 @@ export default function RightPane() {
   const { isBlackout, theme, setTheme, toggleBlackout } = useStore();
 
   const [monitors, setMonitors] = useState<MonitorInfo[]>([]);
-  const [customFonts, setCustomFonts] = useState<{name: string; path: string}[]>([]);
+  const [customFonts, setCustomFonts] = useState<{ name: string; path: string }[]>([]);
   const [selectedMonitor, setSelectedMonitor] = useState<string>('');
   const [isQrOpen, setIsQrOpen] = useState(false);
 
@@ -32,7 +32,7 @@ export default function RightPane() {
       })
       .catch(console.error);
 
-    invoke<{name: string; path: string}[]>('get_custom_fonts')
+    invoke<{ name: string; path: string }[]>('get_custom_fonts')
       .then(setCustomFonts)
       .catch(console.error);
   }, []);
@@ -44,12 +44,12 @@ export default function RightPane() {
         filters: [{ name: 'Fonts', extensions: ['ttf', 'otf'] }]
       });
       if (selected && typeof selected === 'string') {
-        const newFont = await invoke<{name: string; path: string}>('import_custom_font', { sourcePath: selected });
+        const newFont = await invoke<{ name: string; path: string }>('import_custom_font', { sourcePath: selected });
         setCustomFonts(prev => {
           if (!prev.find(f => f.name === newFont.name)) return [...prev, newFont];
           return prev;
         });
-        
+
         // Also inject it dynamically into the current document so it works immediately without reload
         const styleId = 'veritas-custom-fonts';
         let styleEl = document.getElementById(styleId);
@@ -58,7 +58,7 @@ export default function RightPane() {
           styleEl.id = styleId;
           document.head.appendChild(styleEl);
         }
-        
+
         // Use convertFileSrc for the newly imported font
         const { convertFileSrc } = await import('@tauri-apps/api/core');
         styleEl.innerHTML += `
@@ -67,7 +67,7 @@ export default function RightPane() {
             src: url('${convertFileSrc(newFont.path)}');
           }
         `;
-        
+
         setTheme({ mainFontFamily: `'${newFont.name}', sans-serif` });
       }
     } catch (e) {
