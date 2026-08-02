@@ -1,4 +1,4 @@
-import { Search, Book, Download, Loader2, BookOpen, Music, Edit2, Trash2, Plus, History, Settings, Sun, Moon } from 'lucide-react';
+import { Search, Book, Download, Loader2, BookOpen, Music, Edit2, Trash2, Plus, History, Settings, Sun, Moon, Upload } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useState, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
@@ -827,29 +827,20 @@ export default function LeftPane() {
     }
   };
 
-  const handleExportSong = async (song: Song, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleExportAllSongs = async () => {
     try {
       const filePath = await save({
         filters: [{ name: 'XML File', extensions: ['xml'] }],
-        defaultPath: `${song.title}.xml`,
+        defaultPath: 'All_Songs.xml',
       });
 
       if (!filePath) return;
 
-      const verses = await invoke<any[]>('get_song_lyrics', { songId: song.id });
-      const verseTexts = verses.map(v => v.text);
-
-      await invoke('export_song_xml', {
-        filePath,
-        title: song.title,
-        verses: verseTexts
-      });
-
-      await message("Song exported successfully!", { title: "Success", kind: "info" });
+      await invoke('export_all_songs_xml', { filePath });
+      await message("All songs exported successfully!", { title: "Success", kind: "info" });
     } catch (err) {
       console.error(err);
-      await message("Failed to export song.", { title: 'Error', kind: 'error' });
+      await message("Failed to export songs.", { title: 'Error', kind: 'error' });
     }
   };
 
@@ -1294,7 +1285,12 @@ export default function LeftPane() {
         {/* Song Results */}
         {!isImporting && activeTab === 'songs' && songResults.length > 0 && (
           <div className="space-y-1">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-2">Songs</h3>
+            <div className="flex items-center justify-between mb-2 px-2">
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Songs</h3>
+              <button onClick={handleExportAllSongs} className="text-[10px] flex items-center gap-1 text-muted-foreground hover:text-blue-400 bg-secondary px-2 py-1 rounded border border-border transition-colors cursor-pointer">
+                <Upload size={12} /> Export All
+              </button>
+            </div>
             {songResults.map((song) => (
               <div
                 key={song.id}
@@ -1316,17 +1312,10 @@ export default function LeftPane() {
                 </div>
 
                 {/* Actions */}
-                <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 mt-0.5">
-                  <button
-                    onClick={(e) => handleExportSong(song, e)}
-                    className="p-1.5 text-muted-foreground hover:text-blue-400 hover:bg-blue-500/10 rounded transition-colors"
-                    title="Export Song"
-                  >
-                    <Download size={14} />
-                  </button>
+                <div className="flex items-center gap-1 mt-0.5 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors">
                   <button
                     onClick={(e) => handleDeleteSong(song, e)}
-                    className="p-1.5 text-muted-foreground hover:text-rose-400 hover:bg-rose-500/10 rounded transition-colors"
+                    className="p-1.5 hover:text-rose-400 hover:bg-rose-500/10 rounded transition-colors"
                     title="Delete Song"
                   >
                     <Trash2 size={14} />

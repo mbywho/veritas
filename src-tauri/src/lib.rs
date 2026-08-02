@@ -732,41 +732,59 @@ fn import_songs_xml(state: State<'_, AppState>, file_path: String) -> Result<Str
 }
 
 #[tauri::command]
-fn export_song_xml(
+fn export_all_songs_xml(
+    state: State<'_, AppState>,
     file_path: String,
-    title: String,
-    verses: Vec<String>,
 ) -> Result<String, String> {
     use std::fs::File;
     use std::io::Write;
 
+    let conn = state.db.lock().unwrap_or_else(|p| p.into_inner());
+    
+    let mut stmt_songs = conn.prepare_cached("SELECT id, title FROM Songs ORDER BY title ASC").map_err(|e| e.to_string())?;
+    let mut stmt_verses = conn.prepare_cached("SELECT text FROM SongVerses WHERE song_id = ?1 ORDER BY verse_order ASC").map_err(|e| e.to_string())?;
+
     let mut xml = String::new();
     xml.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
     xml.push_str("<verseview>\n");
-    xml.push_str("  <song>\n");
 
-    let safe_title = title
-        .replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace("\"", "&quot;")
-        .replace("'", "&apos;");
-    xml.push_str(&format!("    <name>{}</name>\n", safe_title));
-    xml.push_str("    <lyrics>\n");
+    let songs_iter = stmt_songs.query_map([], |row| {
+        Ok((row.get::<_, i32>(0)?, row.get::<_, String>(1)?))
+    }).map_err(|e| e.to_string())?;
 
-    for verse in verses {
-        let safe_verse = verse
+    for song_result in songs_iter {
+        let (song_id, title) = song_result.map_err(|e| e.to_string())?;
+        
+        xml.push_str("  <song>\n");
+        let safe_title = title
             .replace("&", "&amp;")
             .replace("<", "&lt;")
             .replace(">", "&gt;")
             .replace("\"", "&quot;")
-            .replace("'", "&apos;")
-            .replace("\n", "<BR>");
-        xml.push_str(&format!("      <slide>{}</slide>\n", safe_verse));
+            .replace("'", "&apos;");
+        xml.push_str(&format!("    <name>{}</name>\n", safe_title));
+        xml.push_str("    <lyrics>\n");
+        
+        let verses_iter = stmt_verses.query_map([song_id], |row| {
+            row.get::<_, String>(0)
+        }).map_err(|e| e.to_string())?;
+        
+        for verse_result in verses_iter {
+            let verse = verse_result.map_err(|e| e.to_string())?;
+            let safe_verse = verse
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&apos;")
+                .replace("\n", "<BR>");
+            xml.push_str(&format!("      <slide>{}</slide>\n", safe_verse));
+        }
+        
+        xml.push_str("    </lyrics>\n");
+        xml.push_str("  </song>\n");
     }
 
-    xml.push_str("    </lyrics>\n");
-    xml.push_str("  </song>\n");
     xml.push_str("</verseview>");
 
     let mut file = File::create(file_path).map_err(|e| e.to_string())?;
@@ -1100,7 +1118,7 @@ pub fn run() {
             update_song,
             delete_song,
             import_songs_xml,
-            export_song_xml,
+            export_all_songs_xml,
             get_available_monitors,
             launch_projector_window,
             close_projector_window,
