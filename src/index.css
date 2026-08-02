@@ -127,6 +127,8 @@ video::-webkit-media-controls-overlay-play-button {
 
 .animate-smooth-fade {
   animation: smoothFadeIn 0.4s ease-in-out forwards;
+  will-change: opacity, transform;
+  transform: translateZ(0);
 }
 video {
   pointer-events: none;

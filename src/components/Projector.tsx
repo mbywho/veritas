@@ -1,7 +1,10 @@
 import { useStore } from '../store/useStore';
+import { useShallow } from 'zustand/react/shallow';
 import { useTauriSync } from '../hooks/useTauriSync';
 import { clsx } from 'clsx';
 import { useLayoutEffect, useEffect, useRef } from 'react';
+import { invoke } from '@tauri-apps/api/core';
+import { emit } from '@tauri-apps/api/event';
 
 export default function Projector({ isPreview = false }: { isPreview?: boolean }) {
   // Sync state as a projector (listen only) if not in preview mode
@@ -9,12 +12,30 @@ export default function Projector({ isPreview = false }: { isPreview?: boolean }
     useTauriSync(true);
   }
 
-  const { title, text, subtext, contentType, isBlackout, theme } = useStore();
+  const { title, text, subtext, contentType, isBlackout, theme } = useStore(
+    useShallow(state => ({
+      title: state.title,
+      text: state.text,
+      subtext: state.subtext,
+      contentType: state.contentType,
+      isBlackout: state.isBlackout,
+      theme: state.theme
+    }))
+  );
   const mainTextRef = useRef<HTMLHeadingElement>(null);
   const mainContainerRef = useRef<HTMLDivElement>(null);
   const subTextRef = useRef<HTMLParagraphElement>(null);
   const subContainerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    if (theme?.smoothTransitions && wrapperRef.current) {
+      wrapperRef.current.classList.remove('animate-smooth-fade');
+      void wrapperRef.current.offsetWidth; // trigger reflow
+      wrapperRef.current.classList.add('animate-smooth-fade');
+    }
+  }, [text, subtext, theme?.smoothTransitions]);
 
   useLayoutEffect(() => {
     if (isPreview) return;
@@ -36,7 +57,6 @@ export default function Projector({ isPreview = false }: { isPreview?: boolean }
       if (e.key === 'Escape') {
         e.preventDefault();
         try {
-          const { invoke } = await import('@tauri-apps/api/core');
           await invoke('close_projector_window');
         } catch (err) {
           console.error("Failed to hide window", err);
@@ -44,7 +64,6 @@ export default function Projector({ isPreview = false }: { isPreview?: boolean }
       } else if (['ArrowRight', 'ArrowDown', 'PageDown'].includes(e.key)) {
         e.preventDefault();
         try {
-          const { emit } = await import('@tauri-apps/api/event');
           await emit('remote_action', { action: 'next' });
         } catch (err) {
           console.error("Failed to emit next", err);
@@ -52,7 +71,6 @@ export default function Projector({ isPreview = false }: { isPreview?: boolean }
       } else if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(e.key)) {
         e.preventDefault();
         try {
-          const { emit } = await import('@tauri-apps/api/event');
           await emit('remote_action', { action: 'prev' });
         } catch (err) {
           console.error("Failed to emit prev", err);
@@ -62,6 +80,21 @@ export default function Projector({ isPreview = false }: { isPreview?: boolean }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isPreview]);
+
+  const getStrokeAndShadow = () => {
+    const ts = theme?.textShadow || 'none';
+    if (ts === 'outline') {
+      return { WebkitTextStroke: '3px black', textShadow: 'none' };
+    }
+    if (ts === 'outline-shadow') {
+      return { WebkitTextStroke: '3px black', textShadow: '0 10px 25px rgba(0,0,0,1)' };
+    }
+    if (ts.includes('2px 2px 0 #000')) {
+      if (ts.includes('10px 25px')) return { WebkitTextStroke: '3px black', textShadow: '0 10px 25px rgba(0,0,0,1)' };
+      return { WebkitTextStroke: '3px black', textShadow: 'none' };
+    }
+    return { WebkitTextStroke: 'none', textShadow: ts };
+  };
 
   // Auto-scale font size to fill space without overflowing
   const autoScale = () => {
@@ -75,7 +108,7 @@ export default function Projector({ isPreview = false }: { isPreview?: boolean }
     const maxSub = theme?.subFontSize || 50;
 
     // Binary search for perfect font size
-    for (let i = 0; i < 15; i++) {
+    for (let i = 0; i < 8; i++) {
       const mid = (min + max) / 2;
 
       if (mainTextRef.current) mainTextRef.current.style.fontSize = `${mid * maxMain}px`;
@@ -154,7 +187,7 @@ export default function Projector({ isPreview = false }: { isPreview?: boolean }
           className="absolute inset-0"
           style={{
             backgroundColor: `rgba(0,0,0,${(theme?.bgDim ?? 40) / 100})`,
-            backdropFilter: `blur(${theme?.bgBlur ?? 2}px)`
+            backdropFilter: (theme?.bgBlur && theme.bgBlur > 0) ? `blur(${theme.bgBlur}px)` : 'none'
           }}
         />
       )}
@@ -171,8 +204,8 @@ export default function Projector({ isPreview = false }: { isPreview?: boolean }
                 fontFamily: theme?.mainFontFamily || 'serif',
                 color: theme?.fontColor || 'white',
                 fontSize: theme?.mainFontSize ? `${theme.mainFontSize * 0.8}px` : '40px',
-                textShadow: theme?.textShadow || '2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 0 10px 25px rgba(0,0,0,1)',
                 fontWeight: theme?.fontWeight ?? 800,
+                ...getStrokeAndShadow(),
               }}
             >
               {title}
@@ -182,7 +215,7 @@ export default function Projector({ isPreview = false }: { isPreview?: boolean }
 
         {/* Main Content */}
         <div
-          key={theme?.smoothTransitions ? (text + (subtext || '')) : undefined}
+          ref={wrapperRef}
           className={clsx(
             "flex-1 flex flex-col items-center justify-start min-h-0 w-full",
             theme?.smoothTransitions && "animate-smooth-fade"
@@ -203,10 +236,10 @@ export default function Projector({ isPreview = false }: { isPreview?: boolean }
                 style={{
                   fontFamily: theme?.mainFontFamily || 'serif',
                   color: theme?.fontColor || 'white',
-                  textShadow: theme?.textShadow || '2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 0 10px 25px rgba(0,0,0,1)',
                   fontWeight: theme?.fontWeight ?? 800,
                   lineHeight: theme?.lineHeight ?? 1.2,
-                  transform: 'scale(1)'
+                  transform: 'scale(1)',
+                  ...getStrokeAndShadow(),
                 }}
               >
                 {text}
@@ -229,9 +262,9 @@ export default function Projector({ isPreview = false }: { isPreview?: boolean }
                   style={{
                     fontFamily: theme?.subFontFamily || 'serif',
                     color: theme?.fontColor || 'white',
-                    textShadow: theme?.textShadow || '2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 0 10px 25px rgba(0,0,0,1)',
                     fontWeight: theme?.fontWeight ?? 800,
                     lineHeight: theme?.lineHeight ?? 1.2,
+                    ...getStrokeAndShadow(),
                   }}
                 >
                   {subtext}

@@ -491,7 +491,7 @@ export default function CenterPane() {
       )}
 
       {/* Header */}
-      <div className="h-16 border-b border-border flex items-center justify-between px-6 bg-background/80 backdrop-blur-sm z-10 shadow-sm">
+      <div className="h-16 border-b border-border flex items-center justify-between px-6 bg-background z-10 shadow-sm">
         <div>
           <h1 className="text-xl font-bold text-foreground line-clamp-1">
             {activeItemType === 'song' && activeItemTitle ? activeItemTitle : (activeVerses.length > 0 ? `Selected Verses (${activeVerses.length})` : "No Verses Selected")}

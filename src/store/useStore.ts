@@ -89,7 +89,7 @@ const defaultTheme: ThemeConfig = {
   mainFontSize: 70,
   subFontSize: 70,
   fontColor: '#ffffff',
-  textShadow: '0 4px 12px rgba(0,0,0,0.8)',
+  textShadow: 'none',
   textAlign: 'center',
   bgBlur: 2,
   bgDim: 40,

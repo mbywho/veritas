@@ -1,6 +1,7 @@
 import { Monitor, MonitorOff, MonitorPlay, FolderOpen, ChevronDown, ChevronUp, AlignLeft, AlignCenter, AlignRight, AlignJustify } from 'lucide-react';
 import { clsx } from 'clsx';
-import { useStore } from '../../store/useStore';
+import { StoreState, useStore } from '../../store/useStore';
+import { useShallow } from 'zustand/react/shallow';
 import { open } from '@tauri-apps/plugin-dialog';
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
@@ -17,7 +18,14 @@ interface MonitorInfo {
 }
 
 export default function RightPane() {
-  const { isBlackout, theme, setTheme, toggleBlackout } = useStore();
+  const { isBlackout, theme, setTheme, toggleBlackout } = useStore(
+    useShallow((state: StoreState) => ({
+      isBlackout: state.isBlackout,
+      theme: state.theme,
+      setTheme: state.setTheme,
+      toggleBlackout: state.toggleBlackout
+    }))
+  );
 
   const [monitors, setMonitors] = useState<MonitorInfo[]>([]);
   const [customFonts, setCustomFonts] = useState<{ name: string; path: string }[]>([]);
@@ -120,7 +128,7 @@ export default function RightPane() {
   return (
     <div className="w-80 h-full bg-secondary border-l border-border flex flex-col shadow-[-10px_0_15px_-3px_rgba(0,0,0,0.1)] z-10">
       {/* Live Monitor Header */}
-      <div className="p-4 border-b border-border bg-background/50 backdrop-blur-md flex justify-between items-center">
+      <div className="p-4 border-b border-border bg-background flex justify-between items-center">
         <h2 className="text-sm font-bold tracking-tight text-foreground uppercase flex items-center gap-2">
           <Monitor size={16} className="text-rose-500" />
           Live Output
@@ -519,8 +527,8 @@ export default function RightPane() {
                 >
                   <option value="none">None</option>
                   <option value="0 4px 12px rgba(0,0,0,0.8)">Soft Drop Shadow</option>
-                  <option value="2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000">Hard Outline</option>
-                  <option value="2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 0 10px 25px rgba(0,0,0,1)">Outline + Shadow</option>
+                  <option value="outline">Hard Outline</option>
+                  <option value="outline-shadow">Outline + Shadow</option>
                 </select>
               </div>
 

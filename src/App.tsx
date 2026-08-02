@@ -88,7 +88,7 @@ function App() {
   }, [goToNextSlide, goToPrevSlide]);
 
   return (
-    <div className="flex h-full w-full overflow-hidden bg-background text-foreground font-sans">
+    <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground font-sans">
       <LeftPane />
       <CenterPane />
       <RightPane />

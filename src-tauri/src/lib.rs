@@ -121,7 +121,7 @@ fn get_chapter_count(
     book_number: i32,
 ) -> Result<i32, String> {
     let conn = state.db.lock().unwrap_or_else(|p| p.into_inner());
-    let mut stmt = conn.prepare("SELECT MAX(v.chapter) FROM Verses v JOIN Books b ON b.id = v.book_id WHERE b.bible_id = ?1 AND b.number = ?2").map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare_cached("SELECT MAX(v.chapter) FROM Verses v JOIN Books b ON b.id = v.book_id WHERE b.bible_id = ?1 AND b.number = ?2").map_err(|e| e.to_string())?;
     let count: i32 = stmt
         .query_row(rusqlite::params![bible_id, book_number], |row| row.get(0))
         .unwrap_or(0);
@@ -136,7 +136,7 @@ fn get_verse_count(
     chapter_number: i32,
 ) -> Result<i32, String> {
     let conn = state.db.lock().unwrap_or_else(|p| p.into_inner());
-    let mut stmt = conn.prepare("SELECT MAX(v.verse_num) FROM Verses v JOIN Books b ON b.id = v.book_id WHERE b.bible_id = ?1 AND b.number = ?2 AND v.chapter = ?3").map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare_cached("SELECT MAX(v.verse_num) FROM Verses v JOIN Books b ON b.id = v.book_id WHERE b.bible_id = ?1 AND b.number = ?2 AND v.chapter = ?3").map_err(|e| e.to_string())?;
     let count: i32 = stmt
         .query_row(
             rusqlite::params![bible_id, book_number, chapter_number],
@@ -236,7 +236,7 @@ fn search_verses(
 
     base_sql.push_str(" ORDER BY fts.rank LIMIT 50");
 
-    let mut stmt = conn.prepare(&base_sql).map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare_cached(&base_sql).map_err(|e| e.to_string())?;
     let mut verses = Vec::new();
 
     if let Some(sec_id) = secondary_bible_id {
@@ -312,7 +312,7 @@ fn get_chapter(
          ORDER BY v.verse_num ASC"
     };
 
-    let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare_cached(sql).map_err(|e| e.to_string())?;
     let mut verses = Vec::new();
 
     if let Some(sec_id) = secondary_bible_id {
@@ -798,7 +798,6 @@ fn launch_projector_window(
             let _ = window.set_always_on_top(true);
             let _ = window.set_position(tauri::Position::Physical(*monitor.position()));
             let _ = window.set_size(tauri::Size::Physical(*monitor.size()));
-            #[cfg(not(target_os = "macos"))]
             let _ = window.set_fullscreen(true);
         }
 

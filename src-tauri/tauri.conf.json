@@ -25,6 +25,7 @@
         "url": "index.html#/projector",
         "visible": false,
         "decorations": false,
+        "fullscreen": true,
         "minimizable": false,
         "alwaysOnTop": true
       }
