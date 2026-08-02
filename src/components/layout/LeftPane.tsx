@@ -3,7 +3,7 @@ import { clsx } from 'clsx';
 import { useState, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, emit } from '@tauri-apps/api/event';
-import { open, confirm, message } from '@tauri-apps/plugin-dialog';
+import { open, confirm, message, save } from '@tauri-apps/plugin-dialog';
 import { useStore, Verse } from '../../store/useStore';
 import { parseBibleReference } from '../../utils/bibleParser';
 import { bookTranslationMap } from '../../utils/bibleMap';
@@ -827,6 +827,32 @@ export default function LeftPane() {
     }
   };
 
+  const handleExportSong = async (song: Song, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const filePath = await save({
+        filters: [{ name: 'XML File', extensions: ['xml'] }],
+        defaultPath: `${song.title}.xml`,
+      });
+
+      if (!filePath) return;
+
+      const verses = await invoke<any[]>('get_song_lyrics', { songId: song.id });
+      const verseTexts = verses.map(v => v.text);
+
+      await invoke('export_song_xml', {
+        filePath,
+        title: song.title,
+        verses: verseTexts
+      });
+
+      await message("Song exported successfully!", { title: "Success", kind: "info" });
+    } catch (err) {
+      console.error(err);
+      await message("Failed to export song.", { title: 'Error', kind: 'error' });
+    }
+  };
+
   const handleDeleteSong = async (song: Song, e: React.MouseEvent) => {
     e.stopPropagation();
 
@@ -1291,6 +1317,13 @@ export default function LeftPane() {
 
                 {/* Actions */}
                 <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 mt-0.5">
+                  <button
+                    onClick={(e) => handleExportSong(song, e)}
+                    className="p-1.5 text-muted-foreground hover:text-blue-400 hover:bg-blue-500/10 rounded transition-colors"
+                    title="Export Song"
+                  >
+                    <Download size={14} />
+                  </button>
                   <button
                     onClick={(e) => handleDeleteSong(song, e)}
                     className="p-1.5 text-muted-foreground hover:text-rose-400 hover:bg-rose-500/10 rounded transition-colors"

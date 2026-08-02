@@ -732,6 +732,50 @@ fn import_songs_xml(state: State<'_, AppState>, file_path: String) -> Result<Str
 }
 
 #[tauri::command]
+fn export_song_xml(
+    file_path: String,
+    title: String,
+    verses: Vec<String>,
+) -> Result<String, String> {
+    use std::fs::File;
+    use std::io::Write;
+
+    let mut xml = String::new();
+    xml.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+    xml.push_str("<verseview>\n");
+    xml.push_str("  <song>\n");
+
+    let safe_title = title
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("\"", "&quot;")
+        .replace("'", "&apos;");
+    xml.push_str(&format!("    <name>{}</name>\n", safe_title));
+    xml.push_str("    <lyrics>\n");
+
+    for verse in verses {
+        let safe_verse = verse
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace("\"", "&quot;")
+            .replace("'", "&apos;")
+            .replace("\n", "<BR>");
+        xml.push_str(&format!("      <slide>{}</slide>\n", safe_verse));
+    }
+
+    xml.push_str("    </lyrics>\n");
+    xml.push_str("  </song>\n");
+    xml.push_str("</verseview>");
+
+    let mut file = File::create(file_path).map_err(|e| e.to_string())?;
+    file.write_all(xml.as_bytes()).map_err(|e| e.to_string())?;
+
+    Ok("Exported successfully".to_string())
+}
+
+#[tauri::command]
 fn get_available_monitors(app_handle: tauri::AppHandle) -> Result<Vec<MonitorInfo>, String> {
     let monitors = app_handle.available_monitors().map_err(|e| e.to_string())?;
     let mut profiles = Vec::new();
@@ -872,7 +916,11 @@ pub struct FontInfo {
 #[tauri::command]
 fn get_custom_fonts(app_handle: tauri::AppHandle) -> Result<Vec<FontInfo>, String> {
     use tauri::Manager;
-    let font_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?.join("fonts");
+    let font_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?
+        .join("fonts");
     if !font_dir.exists() {
         return Ok(Vec::new());
     }
@@ -884,7 +932,7 @@ fn get_custom_fonts(app_handle: tauri::AppHandle) -> Result<Vec<FontInfo>, Strin
                 if ext.eq_ignore_ascii_case("ttf") || ext.eq_ignore_ascii_case("otf") {
                     if let (Some(stem), Some(path_str)) = (
                         entry.path().file_stem().and_then(|s| s.to_str()),
-                        entry.path().to_str()
+                        entry.path().to_str(),
                     ) {
                         fonts.push(FontInfo {
                             name: stem.to_string(),
@@ -899,7 +947,10 @@ fn get_custom_fonts(app_handle: tauri::AppHandle) -> Result<Vec<FontInfo>, Strin
 }
 
 #[tauri::command]
-fn import_custom_font(app_handle: tauri::AppHandle, source_path: String) -> Result<FontInfo, String> {
+fn import_custom_font(
+    app_handle: tauri::AppHandle,
+    source_path: String,
+) -> Result<FontInfo, String> {
     use tauri::Manager;
     let source = std::path::Path::new(&source_path);
     if !source.exists() {
@@ -911,7 +962,11 @@ fn import_custom_font(app_handle: tauri::AppHandle, source_path: String) -> Resu
         return Err("Only .ttf and .otf fonts are supported".into());
     }
 
-    let font_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?.join("fonts");
+    let font_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?
+        .join("fonts");
     std::fs::create_dir_all(&font_dir).map_err(|e| e.to_string())?;
 
     let file_name = source.file_name().ok_or("Invalid file name")?;
@@ -919,7 +974,10 @@ fn import_custom_font(app_handle: tauri::AppHandle, source_path: String) -> Resu
 
     std::fs::copy(&source, &dest_path).map_err(|e| e.to_string())?;
 
-    let stem = source.file_stem().and_then(|s| s.to_str()).unwrap_or("UnknownFont");
+    let stem = source
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("UnknownFont");
     Ok(FontInfo {
         name: stem.to_string(),
         path: dest_path.to_string_lossy().to_string(),
@@ -1042,6 +1100,7 @@ pub fn run() {
             update_song,
             delete_song,
             import_songs_xml,
+            export_song_xml,
             get_available_monitors,
             launch_projector_window,
             close_projector_window,
