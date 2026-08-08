@@ -7,6 +7,7 @@ import { open, confirm, message, save } from '@tauri-apps/plugin-dialog';
 import { useStore, Verse } from '../../store/useStore';
 import { parseBibleReference } from '../../utils/bibleParser';
 import { bookTranslationMap } from '../../utils/bibleMap';
+import { Virtuoso } from 'react-virtuoso';
 
 interface Bible {
   id: number;
@@ -48,6 +49,7 @@ export default function LeftPane() {
   const [pendingImportFile, setPendingImportFile] = useState<string | null>(null);
   const [importBibleName, setImportBibleName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [scrollParent, setScrollParent] = useState<HTMLDivElement | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
 
   const [bibles, setBibles] = useState<Bible[]>([]);
@@ -1243,7 +1245,10 @@ export default function LeftPane() {
       )}
 
       {/* Content Area */}
-      <div className="flex-1 overflow-y-auto p-2 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent border-b border-border">
+      <div 
+        ref={setScrollParent}
+        className="flex-1 overflow-y-auto p-2 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent border-b border-border"
+      >
         {isImporting && (
           <div className="p-6 flex flex-col items-center justify-center text-muted-foreground">
             <Loader2 size={32} className="animate-spin mb-4 text-blue-500" />
@@ -1255,30 +1260,35 @@ export default function LeftPane() {
         {!isImporting && activeTab === 'bibles' && bibleResults.length > 0 && (
           <div className="space-y-1">
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-2">Bible Results</h3>
-            {bibleResults.map((verse) => (
-              <div
-                key={verse.id}
-                onClick={() => handleVerseClick(verse)}
-                className="p-3 rounded-md hover:bg-background/80 cursor-pointer transition-colors border border-transparent hover:border-border group flex items-start gap-3"
-              >
-                <div className="mt-0.5 bg-blue-500/10 p-1.5 rounded text-blue-500 group-hover:bg-blue-500 group-hover:text-white transition-colors">
-                  <BookOpen size={14} />
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium text-foreground group-hover:text-blue-400 transition-colors">
-                    Ch {verse.chapter} : V {verse.verse_num}
-                  </h4>
-                  <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
-                    {verse.text}
-                  </p>
-                  {verse.secondary_text && (
-                    <p className="text-xs text-blue-400/80 line-clamp-1 mt-1 border-l-2 border-blue-500/30 pl-2">
-                      {verse.secondary_text}
-                    </p>
-                  )}
-                </div>
-              </div>
-            ))}
+            {scrollParent && (
+              <Virtuoso
+                customScrollParent={scrollParent}
+                data={bibleResults}
+                itemContent={(_, verse) => (
+                  <div
+                    onClick={() => handleVerseClick(verse)}
+                    className="p-3 mb-1 rounded-md hover:bg-background/80 cursor-pointer transition-colors border border-transparent hover:border-border group flex items-start gap-3"
+                  >
+                    <div className="mt-0.5 bg-blue-500/10 p-1.5 rounded text-blue-500 group-hover:bg-blue-500 group-hover:text-white transition-colors">
+                      <BookOpen size={14} />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-medium text-foreground group-hover:text-blue-400 transition-colors">
+                        Ch {verse.chapter} : V {verse.verse_num}
+                      </h4>
+                      <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
+                        {verse.text}
+                      </p>
+                      {verse.secondary_text && (
+                        <p className="text-xs text-blue-400/80 line-clamp-1 mt-1 border-l-2 border-blue-500/30 pl-2">
+                          {verse.secondary_text}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              />
+            )}
           </div>
         )}
 
@@ -1291,38 +1301,43 @@ export default function LeftPane() {
                 <Upload size={12} /> Export All
               </button>
             </div>
-            {songResults.map((song) => (
-              <div
-                key={song.id}
-                onClick={() => handleSongClick(song)}
-                className="p-3 rounded-md hover:bg-background/80 cursor-pointer transition-colors border border-transparent hover:border-border group flex items-start gap-3 relative"
-              >
-                <div className="mt-0.5 bg-rose-500/10 p-1.5 rounded text-rose-500 group-hover:bg-rose-500 group-hover:text-white transition-colors">
-                  <Music size={14} />
-                </div>
-                <div className="flex-1">
-                  <h4 className="text-sm font-medium text-foreground group-hover:text-rose-400 transition-colors">
-                    {song.title}
-                  </h4>
-                  {song.category && (
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {song.category}
-                    </p>
-                  )}
-                </div>
-
-                {/* Actions */}
-                <div className="flex items-center gap-1 mt-0.5 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors">
-                  <button
-                    onClick={(e) => handleDeleteSong(song, e)}
-                    className="p-1.5 hover:text-rose-400 hover:bg-rose-500/10 rounded transition-colors"
-                    title="Delete Song"
+            {scrollParent && (
+              <Virtuoso
+                customScrollParent={scrollParent}
+                data={songResults}
+                itemContent={(_, song) => (
+                  <div
+                    onClick={() => handleSongClick(song)}
+                    className="p-3 mb-1 rounded-md hover:bg-background/80 cursor-pointer transition-colors border border-transparent hover:border-border group flex items-start gap-3 relative"
                   >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              </div>
-            ))}
+                    <div className="mt-0.5 bg-rose-500/10 p-1.5 rounded text-rose-500 group-hover:bg-rose-500 group-hover:text-white transition-colors">
+                      <Music size={14} />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="text-sm font-medium text-foreground group-hover:text-rose-400 transition-colors">
+                        {song.title}
+                      </h4>
+                      {song.category && (
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {song.category}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-1 mt-0.5 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors">
+                      <button
+                        onClick={(e) => handleDeleteSong(song, e)}
+                        className="p-1.5 hover:text-rose-400 hover:bg-rose-500/10 rounded transition-colors"
+                        title="Delete Song"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              />
+            )}
           </div>
         )}
       </div>

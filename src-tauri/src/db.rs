@@ -24,7 +24,14 @@ pub fn init_db(app_handle: &AppHandle) -> Result<Connection, Box<dyn std::error:
 
     // Connect to SQLite
     let conn = Connection::open(db_path)?;
-    conn.execute("PRAGMA foreign_keys = ON;", [])?;
+    conn.execute_batch(
+        "PRAGMA journal_mode = WAL;
+         PRAGMA synchronous = NORMAL;
+         PRAGMA temp_store = MEMORY;
+         PRAGMA mmap_size = 3000000000;
+         PRAGMA page_size = 4096;
+         PRAGMA foreign_keys = ON;"
+    )?;
 
     // Create schema
     conn.execute_batch(
