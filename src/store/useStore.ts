@@ -49,6 +49,7 @@ export interface SlideState {
   subtext?: string;
   contentType?: 'bible' | 'song';
   isBlackout: boolean;
+  isCleared: boolean;
   theme: ThemeConfig;
   playlist?: Verse[];
   slideIndex?: number | null;
@@ -71,6 +72,7 @@ export interface StoreState extends SlideState {
 
   setSlideText: (text: string, subtext?: string, title?: string, contentType?: 'bible' | 'song') => void;
   toggleBlackout: () => void;
+  toggleCleared: () => void;
   setTheme: (theme: Partial<ThemeConfig>) => void;
   setActiveVerses: (verses: Verse[], type?: 'bible' | 'song', id?: number | null, title?: string) => void;
   setActiveSlideIndex: (index: number | null) => void;
@@ -116,6 +118,7 @@ export const useStore = create<StoreState>((set) => ({
   text: '',
   subtext: '',
   isBlackout: false,
+  isCleared: false,
   theme: getSavedTheme(),
   activeTab: 'bibles',
   setActiveTab: (tab) => set({ activeTab: tab }),
@@ -168,11 +171,13 @@ export const useStore = create<StoreState>((set) => ({
       title,
       contentType,
       isBlackout: false,
+      isCleared: false,
       history: newHistory
     };
   }),
 
-  toggleBlackout: () => set((state) => ({ isBlackout: !state.isBlackout })),
+  toggleBlackout: () => set((state) => ({ isBlackout: !state.isBlackout, isCleared: false })),
+  toggleCleared: () => set((state) => ({ isCleared: !state.isCleared, isBlackout: false })),
 
   setTheme: (newTheme) => set((state) => {
     const updatedTheme = { ...state.theme, ...newTheme };
@@ -203,6 +208,7 @@ export const useStore = create<StoreState>((set) => ({
     subtext: payload.subtext,
     contentType: payload.contentType,
     isBlackout: payload.isBlackout,
+    isCleared: payload.isCleared,
     theme: payload.theme,
   }),
 
@@ -228,7 +234,8 @@ export const useStore = create<StoreState>((set) => ({
       subtext: v.secondary_text ? cleanText(v.secondary_text) : undefined,
       title: title,
       contentType: isBible ? 'bible' : 'song',
-      isBlackout: false
+      isBlackout: false,
+      isCleared: false
     };
 
     if (isBible) {
@@ -262,7 +269,8 @@ export const useStore = create<StoreState>((set) => ({
       subtext: v.secondary_text ? cleanText(v.secondary_text) : undefined,
       title: title,
       contentType: isBible ? 'bible' : 'song',
-      isBlackout: false
+      isBlackout: false,
+      isCleared: false
     };
 
     if (isBible) {

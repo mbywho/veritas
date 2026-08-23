@@ -11,8 +11,6 @@ function App() {
   // Sync state as control panel
   useTauriSync(false);
 
-  const goToNextSlide = useStore(state => state.goToNextSlide);
-  const goToPrevSlide = useStore(state => state.goToPrevSlide);
 
   // Theme initialization
   useEffect(() => {
@@ -66,26 +64,55 @@ function App() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if user is typing in an input
-      if (
-        document.activeElement?.tagName === 'INPUT' ||
-        document.activeElement?.tagName === 'TEXTAREA'
-      ) {
+      const isInput = document.activeElement?.tagName === 'INPUT';
+      const isTextArea = document.activeElement?.tagName === 'TEXTAREA';
+
+      // Don't interfere with textarea navigation (like editing a song)
+      if (isTextArea) {
         return;
       }
 
-      if (e.key === 'PageDown' || e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-        goToNextSlide();
-      } else if (e.key === 'PageUp' || e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-        goToPrevSlide();
-      } else if (e.key === 'Escape') {
+      if ((e.metaKey || e.ctrlKey) && e.key === '1') {
+        e.preventDefault();
+        useStore.getState().setActiveTab('bibles');
+        return;
+      }
+
+      if ((e.metaKey || e.ctrlKey) && e.key === '2') {
+        e.preventDefault();
+        useStore.getState().setActiveTab('songs');
+        return;
+      }
+
+      if (e.key === 'PageDown' || e.key === 'ArrowDown' || (e.key === 'ArrowRight' && !isInput)) {
+        e.preventDefault();
+        useStore.getState().goToNextSlide();
+      } else if (e.key === 'PageUp' || e.key === 'ArrowUp' || (e.key === 'ArrowLeft' && !isInput)) {
+        e.preventDefault();
+        useStore.getState().goToPrevSlide();
+      } else if (e.key === 'Escape' && !isInput) {
         invoke('close_projector_window').catch(console.error);
+      } else if (!isInput) {
+        if (e.key.toLowerCase() === 'b') {
+          e.preventDefault();
+          useStore.getState().toggleBlackout();
+        } else if (e.key.toLowerCase() === 'c') {
+          e.preventDefault();
+          useStore.getState().toggleCleared();
+        } else if (e.key.toLowerCase() === 'v') {
+          e.preventDefault();
+          const state = useStore.getState();
+          const types: ('color' | 'image' | 'video')[] = ['color', 'image', 'video'];
+          const currentIndex = types.indexOf(state.theme.bgType || 'color');
+          const nextType = types[(currentIndex + 1) % types.length];
+          state.setTheme({ bgType: nextType });
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [goToNextSlide, goToPrevSlide]);
+  }, []);
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground font-sans">

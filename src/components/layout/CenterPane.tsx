@@ -210,6 +210,7 @@ export default function CenterPane() {
             subtext: state.subtext,
             contentType: state.contentType,
             isBlackout: state.isBlackout,
+            isCleared: state.isCleared,
             theme: state.theme,
             playlist: activeItem.verses,
             slideIndex: activeItem.slideIndex,

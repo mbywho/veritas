@@ -18,12 +18,14 @@ interface MonitorInfo {
 }
 
 export default function RightPane() {
-  const { isBlackout, theme, setTheme, toggleBlackout } = useStore(
+  const { isBlackout, isCleared, theme, setTheme, toggleBlackout, toggleCleared } = useStore(
     useShallow((state: StoreState) => ({
       isBlackout: state.isBlackout,
+      isCleared: state.isCleared,
       theme: state.theme,
       setTheme: state.setTheme,
-      toggleBlackout: state.toggleBlackout
+      toggleBlackout: state.toggleBlackout,
+      toggleCleared: state.toggleCleared
     }))
   );
 
@@ -206,7 +208,7 @@ export default function RightPane() {
         {/* Quick Actions */}
         <div>
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Quick Actions</h3>
-          <div className="grid grid-cols-1 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             <button
               onClick={toggleBlackout}
               className={clsx(
@@ -217,7 +219,19 @@ export default function RightPane() {
               )}
             >
               <MonitorOff size={16} />
-              Clear Screen
+              Blackout Screen
+            </button>
+            <button
+              onClick={toggleCleared}
+              className={clsx(
+                "flex items-center justify-center gap-2 py-3 rounded-md text-sm font-medium transition-all shadow-sm",
+                isCleared
+                  ? "bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/20"
+                  : "bg-background border border-border hover:bg-secondary text-foreground"
+              )}
+            >
+              <MonitorOff size={16} />
+              Clear Text
             </button>
           </div>
         </div>

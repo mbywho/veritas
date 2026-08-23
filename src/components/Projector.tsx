@@ -12,13 +12,14 @@ export default function Projector({ isPreview = false }: { isPreview?: boolean }
     useTauriSync(true);
   }
 
-  const { title, text, subtext, contentType, isBlackout, theme } = useStore(
+  const { title, text, subtext, contentType, isBlackout, isCleared, theme } = useStore(
     useShallow(state => ({
       title: state.title,
       text: state.text,
       subtext: state.subtext,
       contentType: state.contentType,
       isBlackout: state.isBlackout,
+      isCleared: state.isCleared,
       theme: state.theme
     }))
   );
@@ -193,7 +194,10 @@ export default function Projector({ isPreview = false }: { isPreview?: boolean }
       )}
 
       <div
-        className="absolute inset-0 flex flex-col pointer-events-none z-10"
+        className={clsx(
+          "absolute inset-0 flex flex-col pointer-events-none z-10 transition-opacity duration-500",
+          isCleared ? "opacity-0" : "opacity-100"
+        )}
         style={{ padding: `${(theme?.padding ?? 0) + 2}%` }}
       >
         {title && contentType !== 'song' && (
