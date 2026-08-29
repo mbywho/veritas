@@ -176,8 +176,56 @@ export default function CenterPane() {
         }
       } else if (action === 'play_history_item') {
         if (payload.item) {
-          state.setSlideText(payload.item.text, payload.item.subtext, payload.item.reference, undefined);
+          const item = payload.item;
+          const isBibleMatch = item.reference.match(/\((.*?)\)\s*(\d+):(\d+)/);
+          state.setSlideText(item.text, item.subtext, item.reference, isBibleMatch ? 'bible' : 'song');
           ensureProjectorIsOpen();
+
+          if (isBibleMatch) {
+            const primaryBibleId = parseInt(localStorage.getItem('veritas_primaryBibleId') || '1') || 1;
+            const savedSec = localStorage.getItem('veritas_secondaryBibleId');
+            const secondaryBibleId = (savedSec && savedSec !== 'null') ? parseInt(savedSec) : null;
+            
+            const englishBook = isBibleMatch[1];
+            const chapter = parseInt(isBibleMatch[2], 10);
+            const verseNum = parseInt(isBibleMatch[3], 10);
+            const parsed = parseBibleReference(`${englishBook} ${chapter}:${verseNum}`);
+            if (parsed) {
+              invoke<Verse[]>('get_chapter', {
+                bibleId: primaryBibleId,
+                bookNumber: parsed.bookNumber,
+                chapterNumber: parsed.chapter,
+                secondaryBibleId
+              }).then(chapterVerses => {
+                state.setActiveVerses(chapterVerses, 'bible', null);
+                const targetIndex = Math.max(0, chapterVerses.findIndex(v => v.verse_num === verseNum));
+                state.setActiveSlideIndex(targetIndex);
+                state.setActiveTab('bibles');
+              }).catch(console.error);
+            }
+          } else {
+            invoke<any[]>('search_songs', { query: item.reference }).then(songResults => {
+              const song = songResults.find((s: any) => s.title === item.reference);
+              if (song) {
+                invoke<any[]>('get_song_lyrics', { songId: song.id }).then(lyrics => {
+                  const mappedVerses: Verse[] = lyrics.map(l => ({
+                    id: l.id,
+                    book_id: l.song_id,
+                    book_name: song.title,
+                    chapter: 1,
+                    verse_num: l.verse_order,
+                    text: l.text,
+                    secondary_text: undefined
+                  }));
+                  state.setActiveVerses(mappedVerses, 'song', song.id, song.title);
+                  const cleanTextLocal = (t: string) => t.replace(/^\[.*?\]\s*\n/, '');
+                  const targetIndex = Math.max(0, mappedVerses.findIndex(v => cleanTextLocal(v.text) === item.text));
+                  state.setActiveSlideIndex(targetIndex);
+                  state.setActiveTab('songs');
+                }).catch(console.error);
+              }
+            }).catch(console.error);
+          }
         }
       } else if (action === 'next') {
         state.goToNextSlide();

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, emit } from '@tauri-apps/api/event';
 import { open, confirm, message, save } from '@tauri-apps/plugin-dialog';
-import { useStore, Verse } from '../../store/useStore';
+import { useStore, Verse, HistoryItem } from '../../store/useStore';
 import { parseBibleReference } from '../../utils/bibleParser';
 import { bookTranslationMap } from '../../utils/bibleMap';
 import { Virtuoso } from 'react-virtuoso';
@@ -435,7 +435,7 @@ export default function LeftPane() {
           const targetIndex = chapterVerses.findIndex(v => v.verse_num === selectedVerse);
           if (targetIndex !== -1) {
             const v = chapterVerses[targetIndex];
-            const cleanText = (t: string) => t.replace(/\s*\([^)]*\)\s*$/, '');
+            const cleanText = (t: string) => t.replace(/^\[.*?\]\s*\n/, '');
             const englishBook = v.book_name;
             const hindiBook = bookTranslationMap[englishBook] || englishBook;
             const title = `${hindiBook} (${englishBook}) ${v.chapter}:${v.verse_num}`;
@@ -460,7 +460,7 @@ export default function LeftPane() {
         });
         setActiveVerses(chapterVerses, 'bible', null);
 
-        const cleanText = (t: string) => t.replace(/\s*\([^)]*\)\s*$/, '');
+        const cleanText = (t: string) => t.replace(/^\[.*?\]\s*\n/, '');
 
         const targetIndex = chapterVerses.findIndex(v => v.verse_num === verseNum);
         if (targetIndex !== -1) {
@@ -495,7 +495,7 @@ export default function LeftPane() {
 
       setActiveVerses(chapterVerses, 'bible', null);
 
-      const cleanText = (t: string) => t.replace(/\s*\([^)]*\)\s*$/, '');
+      const cleanText = (t: string) => t.replace(/^\[.*?\]\s*\n/, '');
       const targetIndex = chapterVerses.findIndex(v => v.verse_num == verse.verse_num);
       const finalIndex = Math.max(0, targetIndex);
 
@@ -556,7 +556,7 @@ export default function LeftPane() {
               ? Math.max(0, chapterVerses.findIndex(v => v.verse_num === parsedRef.verse))
               : 0;
 
-            const cleanText = (t: string) => t.replace(/\s*\([^)]*\)\s*$/, '');
+            const cleanText = (t: string) => t.replace(/^\[.*?\]\s*\n/, '');
 
             if (chapterVerses[targetIndex]) {
               const v = chapterVerses[targetIndex];
@@ -584,7 +584,7 @@ export default function LeftPane() {
               const v = results[0];
               setActiveVerses([v], 'bible', null);
               setActiveSlideIndex(0);
-              const cleanText = (t: string) => t.replace(/\s*\([^)]*\)\s*$/, '');
+              const cleanText = (t: string) => t.replace(/^\[.*?\]\s*\n/, '');
               const englishBook = v.book_name;
               const hindiBook = bookTranslationMap[englishBook] || englishBook;
               const title = `${hindiBook} (${englishBook}) ${v.chapter}:${v.verse_num}`;
@@ -607,6 +607,60 @@ export default function LeftPane() {
           console.error(err);
         }
       }
+    }
+  };
+
+  const handleHistoryClick = async (item: HistoryItem) => {
+    // Project it immediately to be responsive
+    const isBibleMatch = item.reference.match(/\((.*?)\)\s*(\d+):(\d+)/);
+    setSlideText(item.text, item.subtext, item.reference, isBibleMatch ? 'bible' : 'song');
+
+    if (isBibleMatch && primaryBibleId) {
+      const englishBook = isBibleMatch[1];
+      const chapter = parseInt(isBibleMatch[2], 10);
+      const verseNum = parseInt(isBibleMatch[3], 10);
+      
+      const parsed = parseBibleReference(`${englishBook} ${chapter}:${verseNum}`);
+      if (parsed) {
+        try {
+          const chapterVerses = await invoke<Verse[]>('get_chapter', {
+            bibleId: primaryBibleId,
+            bookNumber: parsed.bookNumber,
+            chapterNumber: parsed.chapter,
+            secondaryBibleId
+          });
+          setActiveVerses(chapterVerses, 'bible', null);
+          const targetIndex = Math.max(0, chapterVerses.findIndex(v => v.verse_num === verseNum));
+          setActiveSlideIndex(targetIndex);
+          setActiveTab('bibles');
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    } else {
+       try {
+         const songResults = await invoke<Song[]>('search_songs', { query: item.reference });
+         const song = songResults.find(s => s.title === item.reference);
+         if (song) {
+           const lyrics = await invoke<SongVerse[]>('get_song_lyrics', { songId: song.id });
+           const mappedVerses: Verse[] = lyrics.map(l => ({
+             id: l.id,
+             book_id: l.song_id,
+             book_name: song.title,
+             chapter: 1,
+             verse_num: l.verse_order,
+             text: l.text,
+             secondary_text: undefined
+           }));
+           setActiveVerses(mappedVerses, 'song', song.id, song.title);
+           const cleanText = (t: string) => t.replace(/^\[.*?\]\s*\n/, '');
+           const targetIndex = Math.max(0, mappedVerses.findIndex(v => cleanText(v.text) === item.text));
+           setActiveSlideIndex(targetIndex);
+           setActiveTab('songs');
+         }
+       } catch (e) {
+         console.error(e);
+       }
     }
   };
 
@@ -1393,7 +1447,7 @@ export default function LeftPane() {
                 history.map(item => (
                   <button
                     key={item.id}
-                    onClick={() => setSlideText(item.text, item.subtext, item.reference)}
+                    onClick={() => handleHistoryClick(item)}
                     className="w-full text-left p-2 rounded hover:bg-secondary transition-colors flex flex-col gap-1 border border-transparent hover:border-border"
                   >
                     <span className="text-xs font-semibold text-blue-400">{item.reference}</span>

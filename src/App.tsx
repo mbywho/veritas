@@ -64,11 +64,17 @@ function App() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const isInput = document.activeElement?.tagName === 'INPUT';
-      const isTextArea = document.activeElement?.tagName === 'TEXTAREA';
+      const activeEl = document.activeElement as HTMLElement;
+      const isInput = activeEl?.tagName === 'INPUT';
+      const isTextArea = activeEl?.tagName === 'TEXTAREA';
+      const isSelect = activeEl?.tagName === 'SELECT';
+      const inputType = isInput ? (activeEl as HTMLInputElement).type : '';
+      
+      // Theme settings use number and range inputs which need up/down arrows
+      const isThemeInput = isInput && (inputType === 'number' || inputType === 'range');
 
-      // Don't interfere with textarea navigation (like editing a song)
-      if (isTextArea) {
+      // Don't interfere with textarea navigation or select dropdowns
+      if (isTextArea || isSelect) {
         return;
       }
 
@@ -84,10 +90,10 @@ function App() {
         return;
       }
 
-      if (e.key === 'PageDown' || e.key === 'ArrowDown' || (e.key === 'ArrowRight' && !isInput)) {
+      if (e.key === 'PageDown' || (!isThemeInput && e.key === 'ArrowDown') || (e.key === 'ArrowRight' && !isInput)) {
         e.preventDefault();
         useStore.getState().goToNextSlide();
-      } else if (e.key === 'PageUp' || e.key === 'ArrowUp' || (e.key === 'ArrowLeft' && !isInput)) {
+      } else if (e.key === 'PageUp' || (!isThemeInput && e.key === 'ArrowUp') || (e.key === 'ArrowLeft' && !isInput)) {
         e.preventDefault();
         useStore.getState().goToPrevSlide();
       } else if (e.key === 'Escape' && !isInput) {

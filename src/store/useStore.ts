@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { bookTranslationMap } from '../utils/bibleMap';
 
-const cleanText = (t: string) => t.replace(/^\[.*?\]\s*\n/, '').replace(/\s*\([^)]*\)\s*$/, '');
+const cleanText = (t: string) => t.replace(/^\[.*?\]\s*\n/, '');
 
 export interface Verse {
   id: number;
