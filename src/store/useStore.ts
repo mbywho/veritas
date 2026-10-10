@@ -61,6 +61,7 @@ export interface ItemState {
   slideIndex: number | null;
   id: number | null;
   title: string;
+  key?: string | null;
 }
 
 export interface StoreState extends SlideState {
@@ -74,7 +75,8 @@ export interface StoreState extends SlideState {
   toggleBlackout: () => void;
   toggleCleared: () => void;
   setTheme: (theme: Partial<ThemeConfig>) => void;
-  setActiveVerses: (verses: Verse[], type?: 'bible' | 'song', id?: number | null, title?: string) => void;
+  setActiveVerses: (verses: Verse[], type?: 'bible' | 'song', id?: number | null, title?: string, key?: string | null) => void;
+  setSongKey: (key: string | null) => void;
   setActiveSlideIndex: (index: number | null) => void;
   setStateFromEvent: (payload: Partial<StoreState>) => void;
   goToNextSlide: () => void;
@@ -185,13 +187,17 @@ export const useStore = create<StoreState>((set) => ({
     return { theme: updatedTheme };
   }),
 
-  setActiveVerses: (verses, type = 'bible', id = null, title = '') => set(() => {
+  setActiveVerses: (verses, type = 'bible', id = null, title = '', key = null) => set(() => {
     if (type === 'bible') {
       return { bibleState: { verses, slideIndex: 0, id, title } };
     } else {
-      return { songState: { verses, slideIndex: 0, id, title } };
+      return { songState: { verses, slideIndex: 0, id, title, key } };
     }
   }),
+
+  setSongKey: (key) => set((state) => ({
+    songState: { ...state.songState, key }
+  })),
 
   setActiveSlideIndex: (index) => set((state) => {
     if (state.activeTab === 'bibles') {

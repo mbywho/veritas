@@ -84,7 +84,8 @@ pub fn init_db(app_handle: &AppHandle) -> Result<Connection, Box<dyn std::error:
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT NOT NULL,
             alternate_title TEXT,
-            category TEXT
+            category TEXT,
+            key TEXT
         );
 
         CREATE TABLE IF NOT EXISTS SongVerses (
@@ -114,8 +115,15 @@ pub fn init_db(app_handle: &AppHandle) -> Result<Connection, Box<dyn std::error:
             INSERT INTO Songs_FTS(Songs_FTS, rowid, title, alternate_title) VALUES ('delete', old.id, old.title, old.alternate_title);
             INSERT INTO Songs_FTS(rowid, title, alternate_title) VALUES (new.id, new.title, new.alternate_title);
         END;
+
+        CREATE INDEX IF NOT EXISTS idx_songverses_song_id ON SongVerses(song_id, verse_order);
+        CREATE INDEX IF NOT EXISTS idx_books_bible_id ON Books(bible_id, number);
+        CREATE INDEX IF NOT EXISTS idx_verses_lookup ON Verses(book_id, chapter, verse_num);
         ",
     )?;
+
+    // Migration: ensure 'key' column exists in Songs table for existing databases
+    let _ = conn.execute("ALTER TABLE Songs ADD COLUMN key TEXT", []);
 
     Ok(conn)
 }

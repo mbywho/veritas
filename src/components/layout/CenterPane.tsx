@@ -1,5 +1,5 @@
 import { clsx } from 'clsx';
-import { Book, Edit, Trash2, Loader2, Plus } from 'lucide-react';
+import { Book, Edit, Trash2, Loader2, Plus, Copy, Check } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
@@ -9,6 +9,17 @@ import { emit } from '@tauri-apps/api/event';
 import { useShallow } from 'zustand/react/shallow';
 import { StoreState, useStore, Verse } from '../../store/useStore';
 import { parseBibleReference } from '../../utils/bibleParser';
+
+const CHORD_KEYS = [
+  {
+    group: 'Major Keys',
+    keys: ['C', 'C#', 'Db', 'D', 'D#', 'Eb', 'E', 'F', 'F#', 'Gb', 'G', 'G#', 'Ab', 'A', 'A#', 'Bb', 'B']
+  },
+  {
+    group: 'Minor Keys',
+    keys: ['Am', 'A#m', 'Bbm', 'Bm', 'Cm', 'C#m', 'Dm', 'D#m', 'Ebm', 'Em', 'Fm', 'F#m', 'Gm', 'G#m', 'Abm']
+  }
+];
 
 export default function CenterPane() {
   const activeTab = useStore((state) => state.activeTab);
@@ -37,6 +48,68 @@ export default function CenterPane() {
     { id: 'initial', label: 'Verse 1', text: '' }
   ]);
   const [isSaving, setIsSaving] = useState(false);
+  const [copiedTitle, setCopiedTitle] = useState(false);
+
+  // Sync song key from DB whenever active song changes
+  useEffect(() => {
+    if (activeItemType === 'song' && activeItemId) {
+      invoke<string | null>('get_song_key', { songId: activeItemId })
+        .then((savedKey) => {
+          if (savedKey !== (activeItem.key || null)) {
+            useStore.getState().setSongKey(savedKey);
+          }
+        })
+        .catch(console.error);
+    }
+  }, [activeItemId, activeItemType]);
+
+  const handleKeyChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newKey = e.target.value || null;
+    if (activeItemType === 'song' && activeItemId) {
+      try {
+        await invoke('update_song_key', { songId: activeItemId, key: newKey });
+        useStore.getState().setSongKey(newKey);
+        await emit('song-updated');
+      } catch (err) {
+        console.error("Failed to update song key:", err);
+      }
+    }
+  };
+
+  const currentDisplayTitle = activeItemType === 'song' && activeItemTitle
+    ? activeItemTitle
+    : (activeVerses.length > 0 ? `Selected Verses (${activeVerses.length})` : "No Verses Selected");
+
+  const handleCopyTitle = async () => {
+    if (!currentDisplayTitle || currentDisplayTitle === "No Verses Selected") return;
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(currentDisplayTitle);
+        setCopiedTitle(true);
+        setTimeout(() => setCopiedTitle(false), 2000);
+        return;
+      }
+    } catch (err) {
+      console.warn("navigator.clipboard failed, attempting fallback:", err);
+    }
+
+    try {
+      const textArea = document.createElement("textarea");
+      textArea.value = currentDisplayTitle;
+      textArea.style.position = "fixed";
+      textArea.style.left = "-999999px";
+      textArea.style.top = "-999999px";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      document.execCommand('copy');
+      textArea.remove();
+      setCopiedTitle(true);
+      setTimeout(() => setCopiedTitle(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy title to clipboard:", err);
+    }
+  };
 
   const handleDeleteSong = async () => {
     if (!activeItemId) return;
@@ -110,7 +183,7 @@ export default function CenterPane() {
         text: l.text,
         secondary_text: undefined
       }));
-      useStore.getState().setActiveVerses(mappedVerses, 'song', activeItemId, editTitle);
+      useStore.getState().setActiveVerses(mappedVerses, 'song', activeItemId, editTitle, activeItem.key || null);
     } catch (err) {
       console.error(err);
       setIsSaving(false);
@@ -217,7 +290,7 @@ export default function CenterPane() {
                     text: l.text,
                     secondary_text: undefined
                   }));
-                  state.setActiveVerses(mappedVerses, 'song', song.id, song.title);
+                  state.setActiveVerses(mappedVerses, 'song', song.id, song.title, song.key || null);
                   const cleanTextLocal = (t: string) => t.replace(/^\[.*?\]\s*\n/, '');
                   const targetIndex = Math.max(0, mappedVerses.findIndex(v => cleanTextLocal(v.text) === item.text));
                   state.setActiveSlideIndex(targetIndex);
@@ -541,15 +614,65 @@ export default function CenterPane() {
 
       {/* Header */}
       <div className="h-16 border-b border-border flex items-center justify-between px-6 bg-background z-10 shadow-sm">
-        <div>
-          <h1 className="text-xl font-bold text-foreground line-clamp-1">
-            {activeItemType === 'song' && activeItemTitle ? activeItemTitle : (activeVerses.length > 0 ? `Selected Verses (${activeVerses.length})` : "No Verses Selected")}
-          </h1>
-          <p className="text-sm text-muted-foreground">Presentation View</p>
+        <div className="flex items-center gap-2 group min-w-0 pr-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <h1
+                id="center-pane-title"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'c') {
+                    const sel = window.getSelection()?.toString();
+                    if (!sel) {
+                      e.preventDefault();
+                      handleCopyTitle();
+                    }
+                  }
+                }}
+                className="text-xl font-bold text-foreground line-clamp-1 select-text cursor-text focus:outline-none"
+                title="Click or select text, or Cmd+C to copy"
+              >
+                {currentDisplayTitle}
+              </h1>
+              {currentDisplayTitle && currentDisplayTitle !== "No Verses Selected" && (
+                <button
+                  onClick={handleCopyTitle}
+                  className="p-1 rounded text-muted-foreground/40 hover:text-foreground hover:bg-secondary transition-colors shrink-0"
+                  title={copiedTitle ? "Copied to clipboard!" : "Copy Title (Cmd+C)"}
+                >
+                  {copiedTitle ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                </button>
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground">Presentation View</p>
+          </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {activeItemType === 'song' && activeItemId && (
             <>
+              {/* Chord Key Dropdown - To the left of Edit Song button */}
+              <div className="flex items-center gap-1.5 mr-1">
+                <span className="text-xs font-medium text-muted-foreground hidden sm:inline">Key:</span>
+                <select
+                  id="song-key-select"
+                  value={activeItem.key || ''}
+                  onChange={handleKeyChange}
+                  className="h-8 px-2 text-xs font-medium bg-secondary/80 hover:bg-secondary text-foreground border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer transition-colors"
+                  title="Song Scale / Chord Key"
+                >
+                  <option value="">None</option>
+                  {CHORD_KEYS.map((grp) => (
+                    <optgroup key={grp.group} label={grp.group}>
+                      {grp.keys.map((k) => (
+                        <option key={k} value={k}>
+                          {k}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </div>
+
               <button onClick={openEditModal} className="p-2 rounded-md border border-border hover:bg-secondary text-muted-foreground hover:text-blue-400 transition-colors" title="Edit Song">
                 <Edit size={18} />
               </button>

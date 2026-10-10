@@ -5,6 +5,7 @@ import { Smartphone } from 'lucide-react';
 
 export default function RemoteConnectCard() {
   const [ipAddress, setIpAddress] = useState<string>('');
+  const [useHttps, setUseHttps] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,7 +44,9 @@ export default function RemoteConnectCard() {
     );
   }
 
-  const remoteUrl = `http://${ipAddress}:8080/remote`;
+  const port = useHttps ? 8443 : 8080;
+  const protocol = useHttps ? 'https' : 'http';
+  const remoteUrl = `${protocol}://${ipAddress}:${port}/remote`;
 
   return (
     <div className="relative overflow-hidden bg-gradient-to-b from-white/[0.08] to-transparent backdrop-blur-2xl border border-white/10 rounded-xl p-6 shadow-2xl">
@@ -63,9 +66,19 @@ export default function RemoteConnectCard() {
         <h3 className="text-sm font-semibold tracking-tight text-white/90 mb-1">
           Connect Remote
         </h3>
-        <p className="text-xs text-white/60 max-w-[200px] leading-relaxed mb-4">
+        <p className="text-xs text-white/60 max-w-[200px] leading-relaxed mb-3">
           Scan to open the presentation remote on your device.
         </p>
+
+        <label className="flex items-center gap-2 mb-4 cursor-pointer group">
+          <input
+            type="checkbox"
+            checked={useHttps}
+            onChange={(e) => setUseHttps(e.target.checked)}
+            className="w-3.5 h-3.5 rounded border-white/20 bg-black/20 text-emerald-400 focus:ring-emerald-500/50 cursor-pointer"
+          />
+          <span className="text-[11px] text-white/60 group-hover:text-white/80 transition-colors">HTTPS Mode (for strict browsers)</span>
+        </label>
         
         <div className="flex items-center gap-2 px-3 py-1.5 bg-black/20 border border-white/5 rounded-full backdrop-blur-md">
           <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" />

@@ -35,6 +35,41 @@ pub async fn start_server(
         .route("/ws", get(ws_handler))
         .with_state(state);
 
+    let local_ip = local_ip_address::local_ip()
+        .map(|ip| ip.to_string())
+        .unwrap_or_else(|_| "127.0.0.1".to_string());
+
+    let subject_alt_names = vec!["localhost".to_string(), "127.0.0.1".to_string(), local_ip];
+    
+    let cert = match rcgen::generate_simple_self_signed(subject_alt_names) {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("Failed to generate certificate: {:?}", e);
+            // Fallback to exit or something? Just panic for now since it shouldn't fail
+            panic!("Certificate generation failed: {:?}", e);
+        }
+    };
+    
+    let config = axum_server::tls_rustls::RustlsConfig::from_der(
+        vec![cert.cert.der().to_vec()],
+        cert.signing_key.serialize_der(),
+    )
+    .await
+    .unwrap();
+
+    let app_https = app.clone();
+    
+    tokio::spawn(async move {
+        let addr = std::net::SocketAddr::from(([0, 0, 0, 0], 8443));
+        println!("HTTPS Server running on https://localhost:8443");
+        if let Err(e) = axum_server::bind_rustls(addr, config)
+            .serve(app_https.into_make_service())
+            .await
+        {
+            eprintln!("HTTPS Server error: {}", e);
+        }
+    });
+
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();
     println!("Server running on http://localhost:8080");
 

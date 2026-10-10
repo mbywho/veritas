@@ -98,7 +98,7 @@ function App() {
         useStore.getState().goToPrevSlide();
       } else if (e.key === 'Escape' && !isInput) {
         invoke('close_projector_window').catch(console.error);
-      } else if (!isInput) {
+      } else if (!isInput && !e.metaKey && !e.ctrlKey && !e.altKey) {
         if (e.key.toLowerCase() === 'b') {
           e.preventDefault();
           useStore.getState().toggleBlackout();

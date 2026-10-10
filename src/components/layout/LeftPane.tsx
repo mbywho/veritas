@@ -27,6 +27,7 @@ interface Song {
   title: string;
   alternate_title: string | null;
   category: string | null;
+  key?: string | null;
 }
 
 interface SongVerse {
@@ -527,7 +528,7 @@ export default function LeftPane() {
         text: l.text,
         secondary_text: undefined
       }));
-      setActiveVerses(mappedVerses, 'song', song.id, song.title);
+      setActiveVerses(mappedVerses, 'song', song.id, song.title, song.key || null);
       if (autoProject && mappedVerses.length > 0) {
         setActiveSlideIndex(0);
         setSlideText(mappedVerses[0].text.replace(/^\[.*?\]\s*\n/, ''), undefined, song.title, 'song');
@@ -652,7 +653,7 @@ export default function LeftPane() {
              text: l.text,
              secondary_text: undefined
            }));
-           setActiveVerses(mappedVerses, 'song', song.id, song.title);
+           setActiveVerses(mappedVerses, 'song', song.id, song.title, song.key || null);
            const cleanText = (t: string) => t.replace(/^\[.*?\]\s*\n/, '');
            const targetIndex = Math.max(0, mappedVerses.findIndex(v => cleanText(v.text) === item.text));
            setActiveSlideIndex(targetIndex);
@@ -1385,11 +1386,18 @@ export default function LeftPane() {
                       <h4 className="text-sm font-medium text-foreground group-hover:text-rose-400 transition-colors">
                         {song.title}
                       </h4>
-                      {song.category && (
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {song.category}
-                        </p>
-                      )}
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {song.category && (
+                          <p className="text-xs text-muted-foreground">
+                            {song.category}
+                          </p>
+                        )}
+                        {song.key && (
+                          <span className="text-[10px] font-semibold px-1.5 py-0.5 bg-secondary text-muted-foreground rounded border border-border">
+                            {song.key}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     {/* Actions */}

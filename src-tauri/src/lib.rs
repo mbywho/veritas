@@ -55,6 +55,7 @@ pub struct Song {
     pub title: String,
     pub alternate_title: Option<String>,
     pub category: Option<String>,
+    pub key: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -393,7 +394,7 @@ fn search_songs(state: State<'_, AppState>, query: String) -> Result<Vec<Song>, 
 
     let mut stmt = conn
         .prepare(
-            "SELECT s.id, s.title, s.alternate_title, s.category 
+            "SELECT s.id, s.title, s.alternate_title, s.category, s.key 
              FROM Songs_FTS fts
              JOIN Songs s ON s.id = fts.rowid
              WHERE Songs_FTS MATCH ?1 
@@ -409,6 +410,7 @@ fn search_songs(state: State<'_, AppState>, query: String) -> Result<Vec<Song>, 
                 title: row.get(1)?,
                 alternate_title: row.get(2)?,
                 category: row.get(3)?,
+                key: row.get(4)?,
             })
         })
         .map_err(|e| e.to_string())?;
@@ -426,7 +428,7 @@ fn get_all_songs(state: State<'_, AppState>) -> Result<Vec<Song>, String> {
 
     let mut stmt = conn
         .prepare(
-            "SELECT id, title, alternate_title, category 
+            "SELECT id, title, alternate_title, category, key 
              FROM Songs 
              ORDER BY title",
         )
@@ -439,6 +441,7 @@ fn get_all_songs(state: State<'_, AppState>) -> Result<Vec<Song>, String> {
                 title: row.get(1)?,
                 alternate_title: row.get(2)?,
                 category: row.get(3)?,
+                key: row.get(4)?,
             })
         })
         .map_err(|e| e.to_string())?;
@@ -449,6 +452,33 @@ fn get_all_songs(state: State<'_, AppState>) -> Result<Vec<Song>, String> {
     }
 
     Ok(songs)
+}
+
+#[tauri::command]
+fn get_song_key(state: State<'_, AppState>, song_id: i32) -> Result<Option<String>, String> {
+    let conn = state.db.lock().unwrap_or_else(|p| p.into_inner());
+    let mut stmt = conn
+        .prepare_cached("SELECT key FROM Songs WHERE id = ?1")
+        .map_err(|e| e.to_string())?;
+    let key: Option<String> = stmt
+        .query_row([song_id], |row| row.get(0))
+        .unwrap_or(None);
+    Ok(key)
+}
+
+#[tauri::command]
+fn update_song_key(
+    state: State<'_, AppState>,
+    song_id: i32,
+    key: Option<String>,
+) -> Result<(), String> {
+    let conn = state.db.lock().unwrap_or_else(|p| p.into_inner());
+    conn.execute(
+        "UPDATE Songs SET key = ?1 WHERE id = ?2",
+        rusqlite::params![key, song_id],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -616,9 +646,13 @@ fn import_songs_xml(state: State<'_, AppState>, file_path: String) -> Result<Str
     let mut buf = Vec::new();
     let mut in_song = false;
     let mut in_title = false;
+    let mut in_category = false;
+    let mut in_key = false;
     let mut in_lyrics = false;
 
     let mut current_title = String::new();
+    let mut current_category = String::new();
+    let mut current_key = String::new();
     let mut current_lyrics = String::new();
 
     let mut songs_imported = 0;
@@ -628,7 +662,7 @@ fn import_songs_xml(state: State<'_, AppState>, file_path: String) -> Result<Str
 
     {
         let mut insert_song = tx
-            .prepare("INSERT INTO Songs (title, category) VALUES (?1, ?2)")
+            .prepare("INSERT INTO Songs (title, category, key) VALUES (?1, ?2, ?3)")
             .map_err(|e| e.to_string())?;
         let mut insert_verse = tx
             .prepare("INSERT INTO SongVerses (song_id, verse_order, text) VALUES (?1, ?2, ?3)")
@@ -643,11 +677,23 @@ fn import_songs_xml(state: State<'_, AppState>, file_path: String) -> Result<Str
                     b"song" => {
                         in_song = true;
                         current_title.clear();
+                        current_category.clear();
+                        current_key.clear();
                         current_lyrics.clear();
                     }
-                    b"name" => {
+                    b"name" | b"title" => {
                         if in_song {
                             in_title = true;
+                        }
+                    }
+                    b"category" => {
+                        if in_song {
+                            in_category = true;
+                        }
+                    }
+                    b"key" => {
+                        if in_song {
+                            in_key = true;
                         }
                     }
                     b"slide" => {
@@ -660,23 +706,35 @@ fn import_songs_xml(state: State<'_, AppState>, file_path: String) -> Result<Str
                 Ok(Event::Text(e)) => {
                     if let Ok(val) = std::str::from_utf8(e.as_ref()) {
                         if in_title {
-                            current_title = val.to_string();
+                            current_title.push_str(val);
+                        } else if in_category {
+                            current_category.push_str(val);
+                        } else if in_key {
+                            current_key.push_str(val);
                         } else if in_lyrics {
                             current_lyrics.push_str(val);
                         }
                     }
                 }
                 Ok(Event::CData(e)) => {
-                    if in_lyrics {
-                        let text = std::str::from_utf8(e.as_ref()).map_err(|e| e.to_string())?;
-                        current_lyrics.push_str(text);
+                    if let Ok(text) = std::str::from_utf8(e.as_ref()) {
+                        if in_title {
+                            current_title.push_str(text);
+                        } else if in_category {
+                            current_category.push_str(text);
+                        } else if in_key {
+                            current_key.push_str(text);
+                        } else if in_lyrics {
+                            current_lyrics.push_str(text);
+                        }
                     }
                 }
                 Ok(Event::End(ref e)) => match e.name().as_ref() {
                     b"song" => {
                         in_song = false;
-                        if !current_title.is_empty() {
-                            let safe_title = sanitize_fts_query(&current_title);
+                        let trimmed_title = current_title.trim();
+                        if !trimmed_title.is_empty() {
+                            let safe_title = sanitize_fts_query(trimmed_title);
                             let duplicate = if safe_title.trim().is_empty() {
                                 false
                             } else {
@@ -686,8 +744,19 @@ fn import_songs_xml(state: State<'_, AppState>, file_path: String) -> Result<Str
                             };
 
                             if !duplicate {
+                                let cat = if current_category.trim().is_empty() {
+                                    "Imported"
+                                } else {
+                                    current_category.trim()
+                                };
+                                let song_key = if current_key.trim().is_empty() {
+                                    None
+                                } else {
+                                    Some(current_key.trim().to_string())
+                                };
+
                                 insert_song
-                                    .execute(rusqlite::params![current_title, "Imported"])
+                                    .execute(rusqlite::params![trimmed_title, cat, song_key])
                                     .map_err(|e| e.to_string())?;
                                 let song_id = tx.last_insert_rowid();
 
@@ -695,7 +764,9 @@ fn import_songs_xml(state: State<'_, AppState>, file_path: String) -> Result<Str
                                 let mut verse_num = 1;
                                 for stanza in stanzas {
                                     let cleaned_stanza =
-                                        stanza.replace("<BR>", "\n").replace("<br>", "\n");
+                                        stanza.replace("<BR>", "
+").replace("<br>", "
+");
                                     let stripped_stanza = strip_html_tags(&cleaned_stanza);
                                     let trimmed = stripped_stanza.trim();
                                     if !trimmed.is_empty() {
@@ -709,8 +780,15 @@ fn import_songs_xml(state: State<'_, AppState>, file_path: String) -> Result<Str
                             }
                         }
                     }
-                    b"name" => in_title = false,
-                    b"slide" => in_lyrics = false,
+                    b"name" | b"title" => in_title = false,
+                    b"category" => in_category = false,
+                    b"key" => in_key = false,
+                    b"slide" => {
+                        in_lyrics = false;
+                        if !current_lyrics.ends_with("<slide>") {
+                            current_lyrics.push_str("<slide>");
+                        }
+                    }
                     _ => (),
                 },
                 Ok(Event::Eof) => break,
@@ -740,52 +818,97 @@ fn export_all_songs_xml(
     use std::io::Write;
 
     let conn = state.db.lock().unwrap_or_else(|p| p.into_inner());
-    
-    let mut stmt_songs = conn.prepare_cached("SELECT id, title FROM Songs ORDER BY title ASC").map_err(|e| e.to_string())?;
-    let mut stmt_verses = conn.prepare_cached("SELECT text FROM SongVerses WHERE song_id = ?1 ORDER BY verse_order ASC").map_err(|e| e.to_string())?;
+
+    let mut stmt_songs = conn
+        .prepare_cached("SELECT id, title, category, key FROM Songs ORDER BY title ASC")
+        .map_err(|e| e.to_string())?;
+    let mut stmt_verses = conn
+        .prepare_cached("SELECT text FROM SongVerses WHERE song_id = ?1 ORDER BY verse_order ASC")
+        .map_err(|e| e.to_string())?;
 
     let mut xml = String::new();
     xml.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
-    xml.push_str("<verseview>\n");
+    xml.push_str("<songDB>\n");
+    xml.push_str("<type>XMLsong</type>\n");
+    xml.push_str("<disclaimer>The copyrights to these songs belongs to person mentioned in the copyright tag of each song. This database has been designed and compiled for VerseVIEW only.</disclaimer>\n");
 
-    let songs_iter = stmt_songs.query_map([], |row| {
-        Ok((row.get::<_, i32>(0)?, row.get::<_, String>(1)?))
-    }).map_err(|e| e.to_string())?;
+    let songs_iter = stmt_songs
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, i32>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, Option<String>>(2)?,
+                row.get::<_, Option<String>>(3)?,
+            ))
+        })
+        .map_err(|e| e.to_string())?;
 
     for song_result in songs_iter {
-        let (song_id, title) = song_result.map_err(|e| e.to_string())?;
-        
-        xml.push_str("  <song>\n");
+        let (song_id, title, category_opt, key_opt) = song_result.map_err(|e| e.to_string())?;
+
+        let category = category_opt
+            .filter(|c| !c.trim().is_empty())
+            .unwrap_or_else(|| "English".to_string());
+        let key = key_opt.unwrap_or_default();
+
         let safe_title = title
-            .replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
-            .replace("\"", "&quot;")
-            .replace("'", "&apos;");
+            .replace('&', "&amp;")
+            .replace('<', "&lt;")
+            .replace('>', "&gt;")
+            .replace('"', "&quot;")
+            .replace('\'', "&apos;");
+
+        let safe_cat = category
+            .replace('&', "&amp;")
+            .replace('<', "&lt;")
+            .replace('>', "&gt;")
+            .replace('"', "&quot;")
+            .replace('\'', "&apos;");
+
+        let safe_key = key
+            .replace('&', "&amp;")
+            .replace('<', "&lt;")
+            .replace('>', "&gt;")
+            .replace('"', "&quot;")
+            .replace('\'', "&apos;");
+
+        xml.push_str("  <song>\n");
+        xml.push_str(&format!("    <category>{}</category>\n", safe_cat));
         xml.push_str(&format!("    <name>{}</name>\n", safe_title));
-        xml.push_str("    <lyrics>\n");
-        
-        let verses_iter = stmt_verses.query_map([song_id], |row| {
-            row.get::<_, String>(0)
-        }).map_err(|e| e.to_string())?;
-        
+        xml.push_str("    <font>Calibri</font>\n");
+        xml.push_str("    <font2></font2>\n");
+        xml.push_str("    <timestamp></timestamp>\n");
+        xml.push_str("    <yvideo></yvideo>\n");
+        xml.push_str("    <bkgnd></bkgnd>\n");
+        xml.push_str(&format!("    <key>{}</key>\n", safe_key));
+        xml.push_str("    <copyright></copyright>\n");
+        xml.push_str("    <notes></notes>\n");
+
+        let verses_iter = stmt_verses
+            .query_map([song_id], |row| row.get::<_, String>(0))
+            .map_err(|e| e.to_string())?;
+
+        let mut slides_content = String::new();
         for verse_result in verses_iter {
             let verse = verse_result.map_err(|e| e.to_string())?;
-            let safe_verse = verse
-                .replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;")
-                .replace("\"", "&quot;")
-                .replace("'", "&apos;")
-                .replace("\n", "<BR>");
-            xml.push_str(&format!("      <slide>{}</slide>\n", safe_verse));
+            let formatted_verse = verse
+                .replace("\r\n", "<BR>")
+                .replace('\n', "<BR>")
+                .replace("]]>", "]]]]><![CDATA[>");
+            slides_content.push_str(&formatted_verse);
+            slides_content.push_str("<slide>");
         }
-        
-        xml.push_str("    </lyrics>\n");
+
+        xml.push_str(&format!("    <slide><![CDATA[{}]]></slide>\n", slides_content));
+        xml.push_str("    <slide2><![CDATA[]]></slide2>\n");
+        xml.push_str("    <name2><![CDATA[]]></name2>\n");
+        xml.push_str("    <tags><![CDATA[]]></tags>\n");
+        xml.push_str("    <slideseq><![CDATA[]]></slideseq>\n");
+        xml.push_str("    <subcat><![CDATA[]]></subcat>\n");
         xml.push_str("  </song>\n");
     }
 
-    xml.push_str("</verseview>");
+    xml.push_str("</songDB>\n");
 
     let mut file = File::create(file_path).map_err(|e| e.to_string())?;
     file.write_all(xml.as_bytes()).map_err(|e| e.to_string())?;
@@ -1087,6 +1210,12 @@ pub fn run() {
                 }
             }
 
+                        #[cfg(target_os = "macos")]
+            {
+                if let Ok(menu) = tauri::menu::Menu::default(app.handle()) {
+                    let _ = app.set_menu(menu);
+                }
+            }
             app.manage(AppState {
                 db: Mutex::new(conn),
                 broadcast_tx: tx.clone(),
@@ -1119,6 +1248,8 @@ pub fn run() {
             delete_song,
             import_songs_xml,
             export_all_songs_xml,
+            get_song_key,
+            update_song_key,
             get_available_monitors,
             launch_projector_window,
             close_projector_window,
